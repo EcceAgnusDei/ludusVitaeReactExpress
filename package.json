@@ -1,0 +1,9 @@
+{
+  "name": "mon-dashboard",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --parallel --filter client dev",
+    "dev:front": "pnpm --filter client dev",
+    "build": "pnpm --filter client build"
+  }
+}
