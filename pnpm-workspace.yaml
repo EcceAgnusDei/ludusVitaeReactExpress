@@ -1,3 +1,5 @@
 packages:
   - "client" # ton app React déjà existante
   - "server" # sera créé bientôt
+allowBuilds:
+  esbuild: true
