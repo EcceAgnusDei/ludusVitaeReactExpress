@@ -1,7 +1,16 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react"; // ou @vitejs/plugin-react si tu utilises Babel
+import tailwindcss from "@tailwindcss/vite";
+import path from "path";
 
-// https://vite.dev/config/
 export default defineConfig({
-  plugins: [react()],
-})
+  plugins: [
+    react(),
+    tailwindcss(), // ← Important : doit être ajouté ici
+  ],
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"), // Alias @ pour shadcn/ui
+    },
+  },
+});

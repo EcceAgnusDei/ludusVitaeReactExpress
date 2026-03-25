@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:18-alpine # version récente (PostgreSQL 18 en 2026)
+    container_name: postgres-dev
+    restart: unless-stopped
+    ports:
+      - "5432:5432" # port local = 5432
+    environment:
+      POSTGRES_USER: antoine
+      POSTGRES_PASSWORD: password123 # change ça en production !
+      POSTGRES_DB: ludusvitae_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:
+
+# Optionnel mais très pratique en développement
+# pgadmin:
+#   image: dpage/pgadmin4:latest
+#   container_name: pgadmin-betterauth
+#   restart: unless-stopped
+#   environment:
+#     PGADMIN_DEFAULT_EMAIL: admin@local.dev
+#     PGADMIN_DEFAULT_PASSWORD: admin123
+#   ports:
+#     - "8080:80"
+#   depends_on:
+#     - postgres
+#   networks:
+#     - app-network
+
+# ???
+#   networks:
+#   app-network:
+#     driver: bridge
