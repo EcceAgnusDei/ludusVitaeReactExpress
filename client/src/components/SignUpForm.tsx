@@ -6,14 +6,6 @@ import * as z from "zod";
 
 import { authClient } from "@/lib/auth-client"; // ton fichier créé précédemment
 
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,9 +15,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast"; // si tu utilises sonner ou shadcn toast
+import { Label } from "@/components/ui/label";
 
 // Schéma de validation Zod
 const signUpSchema = z.object({
@@ -41,12 +33,12 @@ const signUpSchema = z.object({
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
-export function SignUpForm() {
+export function SignUpForm({ onClose }: { onClose?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<SignUpFormValues>({
-    resolver: zodResolver(signUpSchema),
+    resolver: zodResolver(signUpSchema as never),
     defaultValues: {
       name: "",
       email: "",
@@ -54,11 +46,18 @@ export function SignUpForm() {
     },
   });
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = form;
+
   const onSubmit = async (values: SignUpFormValues) => {
     setIsLoading(true);
+    setFormError(null);
 
     try {
-      const { data, error } = await authClient.signUp.email({
+      const { error } = await authClient.signUp.email({
         name: values.name,
         email: values.email,
         password: values.password,
@@ -66,34 +65,35 @@ export function SignUpForm() {
       });
 
       if (error) {
-        toast({
-          title: "Erreur d'inscription",
-          description: error.message || "Une erreur est survenue",
-          variant: "destructive",
-        });
+        setFormError(error.message || "Une erreur est survenue lors de l'inscription.");
         return;
       }
 
-      toast({
-        title: "Inscription réussie !",
-        description: "Vous pouvez maintenant vous connecter.",
-      });
+      // better-auth est configuré en `autoSignIn: true`, donc on peut fermer l'overlay.
+      onClose?.();
 
       // Optionnel : redirection ou affichage d'un message "vérifie ton email" si tu as activé la vérification
       // router.push('/login');
     } catch (err) {
-      toast({
-        title: "Erreur",
-        description: "Une erreur inattendue est survenue",
-        variant: "destructive",
-      });
+      setFormError("Une erreur inattendue est survenue.");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full relative">
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon-sm"
+        className="absolute right-3 top-3"
+        onClick={() => onClose?.()}
+        disabled={isLoading}
+        aria-label="Fermer"
+      >
+        <X />
+      </Button>
       <CardHeader>
         <CardTitle>Créer un compte</CardTitle>
         <CardDescription>
@@ -101,60 +101,55 @@ export function SignUpForm() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nom complet</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Jean Dupont" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {formError && <div className="text-sm text-destructive">{formError}</div>}
 
-            <FormField
-              control={form.control}
-              name="email"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Adresse email</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="email"
-                      placeholder="jean@example.com"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="name">Nom complet</Label>
+            <Input
+              id="name"
+              placeholder="Jean Dupont"
+              aria-invalid={!!errors.name}
+              {...register("name")}
             />
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name.message}</p>
+            )}
+          </div>
 
-            <FormField
-              control={form.control}
-              name="password"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Mot de passe</FormLabel>
-                  <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
+          <div className="space-y-2">
+            <Label htmlFor="email">Adresse email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="jean@example.com"
+              aria-invalid={!!errors.email}
+              {...register("email")}
             />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
+          </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Créer mon compte
-            </Button>
-          </form>
-        </Form>
+          <div className="space-y-2">
+            <Label htmlFor="password">Mot de passe</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              aria-invalid={!!errors.password}
+              {...register("password")}
+            />
+            {errors.password && (
+              <p className="text-sm text-destructive">{errors.password.message}</p>
+            )}
+          </div>
+
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Créer mon compte
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );
