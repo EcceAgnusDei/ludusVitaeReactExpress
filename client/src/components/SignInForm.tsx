@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 
-import { authClient } from "@/lib/auth-client"; // ton fichier créé précédemment
+import { authClient } from "@/lib/auth-client";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -19,29 +19,21 @@ import { Loader2, X } from "lucide-react";
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 
-// Schéma de validation Zod
-const signUpSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+const signInSchema = z.object({
   email: z.string().email("Adresse email invalide"),
-  password: z
-    .string()
-    .min(8, "Le mot de passe doit contenir au moins 8 caractères")
-    .regex(/[A-Z]/, "Doit contenir au moins une majuscule")
-    .regex(/[a-z]/, "Doit contenir au moins une minuscule")
-    .regex(/[0-9]/, "Doit contenir au moins un chiffre"),
+  password: z.string().min(1, "Mot de passe requis"),
 });
 
-type SignUpFormValues = z.infer<typeof signUpSchema>;
+type SignInFormValues = z.infer<typeof signInSchema>;
 
-export function SignUpForm({ onClose }: { onClose?: () => void }) {
+export function SignInForm({ onClose }: { onClose?: () => void }) {
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [registrationSucceeded, setRegistrationSucceeded] = useState(false);
+  const [loginSucceeded, setLoginSucceeded] = useState(false);
 
-  const form = useForm<SignUpFormValues>({
-    resolver: zodResolver(signUpSchema as never),
+  const form = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema as never),
     defaultValues: {
-      name: "",
       email: "",
       password: "",
     },
@@ -53,34 +45,32 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
     formState: { errors },
   } = form;
 
-  const onSubmit = async (values: SignUpFormValues) => {
+  const onSubmit = async (values: SignInFormValues) => {
     setIsLoading(true);
     setFormError(null);
 
     try {
-      const { error } = await authClient.signUp.email({
-        name: values.name,
+      const { error } = await authClient.signIn.email({
         email: values.email,
         password: values.password,
-        // callbackURL: '/dashboard', // optionnel : redirection après inscription réussie
       });
 
       if (error) {
         setFormError(
-          error.message || "Une erreur est survenue lors de l'inscription.",
+          error.message || "Une erreur est survenue lors de la connexion.",
         );
         return;
       }
 
-      setRegistrationSucceeded(true);
-    } catch (err) {
+      setLoginSucceeded(true);
+    } catch {
       setFormError("Une erreur inattendue est survenue.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  if (registrationSucceeded) {
+  if (loginSucceeded) {
     return (
       <Card className="w-full relative">
         <Button
@@ -94,8 +84,8 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
           <X />
         </Button>
         <CardHeader>
-          <CardTitle>Inscription réussie</CardTitle>
-          <CardDescription>Le compte a bien été créé.</CardDescription>
+          <CardTitle>Connexion réussie</CardTitle>
+          <CardDescription>Tu es maintenant connecté.</CardDescription>
         </CardHeader>
         <CardContent>
           <Button type="button" className="w-full" onClick={() => onClose?.()}>
@@ -120,10 +110,8 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
         <X />
       </Button>
       <CardHeader>
-        <CardTitle>Créer un compte</CardTitle>
-        <CardDescription>
-          Remplis les informations ci-dessous pour t'inscrire
-        </CardDescription>
+        <CardTitle>Se connecter</CardTitle>
+        <CardDescription>Entre ton email et ton mot de passe.</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -132,24 +120,12 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="name">Nom complet</Label>
+            <Label htmlFor="signin-email">Adresse email</Label>
             <Input
-              id="name"
-              placeholder="Jean Dupont"
-              aria-invalid={!!errors.name}
-              {...register("name")}
-            />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Adresse email</Label>
-            <Input
-              id="email"
+              id="signin-email"
               type="email"
               placeholder="jean@example.com"
+              autoComplete="email"
               aria-invalid={!!errors.email}
               {...register("email")}
             />
@@ -159,11 +135,12 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="signin-password">Mot de passe</Label>
             <Input
-              id="password"
+              id="signin-password"
               type="password"
               placeholder="••••••••"
+              autoComplete="current-password"
               aria-invalid={!!errors.password}
               {...register("password")}
             />
@@ -176,7 +153,7 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
 
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Créer mon compte
+            Connexion
           </Button>
         </form>
       </CardContent>

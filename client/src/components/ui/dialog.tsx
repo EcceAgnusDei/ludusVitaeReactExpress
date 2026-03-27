@@ -16,7 +16,6 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
   return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-xs"
-      onClick={onClose}
       role="presentation"
     >
       <div
@@ -24,7 +23,6 @@ function Dialog({ open, onClose, children, className }: DialogProps) {
           "w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-y-auto",
           className,
         )}
-        onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
