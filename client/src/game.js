@@ -85,13 +85,6 @@ class Cell extends Element {
   }
 
   isOnGrid(x, y) {
-    console.log(
-      x,
-      y,
-      this.gridSize.x,
-      this.gridSize.y,
-      x <= 0 || x > this.gridSize.x || y <= 0 || y > this.gridSize.y,
-    );
     if (x <= 0 || x > this.gridSize.x || y <= 0 || y > this.gridSize.y) {
       return false;
     } else {
