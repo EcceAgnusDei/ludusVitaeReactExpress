@@ -1,154 +1,65 @@
+/** Coordonnées relatives des voisins d'une cellules */
+const NEIGHBOR_OFFSETS = [
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+  [-1, 0],
+  [1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+];
+
 class Element {
   constructor(tag, parent, id) {
     this.element = document.createElement(tag);
     id && this.element.setAttribute("id", id);
     this.parent = parent;
-    this.noInfinitLoop = 0;
     this.id = id;
-  }
-
-  mount() {
-    this.parent.appendChild(this.element);
-  }
-
-  waitMounting(callback) {
-    if (typeof this.element === "undefined" && this.noInfinitLoop < 100) {
-      setTimeout(() => {
-        this.noInfinitLoop++;
-        this.waitMounting();
-      }, 1);
-    } else if (this.noInfinitLoop >= 100) {
-      throw new Error("Erreur dans le chargement de la page");
-    } else {
-      callback();
-    }
+    parent.appendChild(this.element);
   }
 }
 
 class Cell extends Element {
-  constructor(
-    playable,
-    x,
-    y,
-    parent,
-    { trackedCells, cells, gridSize },
-    id,
-    cellSize = "20px",
-  ) {
+  constructor(playable, x, y, parent, grid, id, cellSize = "20px") {
     super("div", parent, id);
+    this.grid = grid;
     this.playable = playable;
     this.x = x;
     this.y = y;
-    this.cells = cells;
-    this.trackedCells = trackedCells;
-    this.gridSize = gridSize;
     this.cellSize = cellSize;
     this.isAlive = false;
     this.willBeAlive = false;
-    this.neighbours = 0;
     this.configureCell();
   }
 
   configureCell() {
-    this.element.style.border = "1px solid black";
+    this.element.classList.add("lv-cell");
     this.element.style.width = this.cellSize;
     this.element.style.height = this.cellSize;
-    this.element.style.backgroundColor = "white";
-    this.element.style.color = "green"; //pour le developpement
     this.element.setAttribute("x", this.x);
     this.element.setAttribute("y", this.y);
     if (this.playable) {
       this.element.onclick = () => {
         if (this.isAlive) {
           this.setLife(false);
-          this.handleNeighbours(false);
         } else {
           this.setLife(true);
-          this.handleNeighbours(true);
         }
       };
-    }
-  }
-
-  willItBeAlive() {
-    if (this.isAlive) {
-      if (this.neighbours == 2 || this.neighbours == 3) {
-        this.willBeAlive = true;
-      } else {
-        this.willBeAlive = false;
-      }
-    } else if (this.neighbours == 3) {
-      this.willBeAlive = true;
-    } else {
-      this.willBeAlive = false;
-    }
-  }
-
-  isOnGrid(x, y) {
-    if (x <= 0 || x > this.gridSize.x || y <= 0 || y > this.gridSize.y) {
-      return false;
-    } else {
-      return true;
-    }
-  }
-
-  addNeighbour() {
-    if (!this.trackedCells.includes(this)) {
-      this.trackedCells.push(this);
-    }
-    this.neighbours++;
-    this.element.innerText = `${this.neighbours}`;
-  }
-
-  dellNeighbour() {
-    this.neighbours--;
-    this.element.innerText = `${this.neighbours}`;
-  }
-
-  selectCellByCoord(x, y) {
-    const selectedCell = this.cells.find((cell) => {
-      return cell.x == x && cell.y == y;
-    });
-    return selectedCell;
-  }
-
-  handleNeighbours(isBroughtToLife) {
-    for (let i = this.x - 1; i <= this.x + 1; i++) {
-      for (let j = this.y - 1; j <= this.y + 1; j++) {
-        if ((i != this.x || j != this.y) && this.isOnGrid(i, j)) {
-          const neighbour = this.selectCellByCoord(i, j);
-          if (isBroughtToLife) {
-            neighbour.addNeighbour();
-          } else {
-            neighbour.dellNeighbour();
-          }
-        }
-      }
     }
   }
 
   setLife(isAlive) {
     if (isAlive) {
       this.isAlive = true;
-      this.element.style.backgroundColor = "black";
-      if (!this.trackedCells.includes(this)) {
-        this.trackedCells.push(this);
-      }
+      this.element.classList.add("lv-cell--alive");
+      this.grid.trackedCells.add(this);
     } else {
       this.isAlive = false;
-      this.element.style.backgroundColor = "white";
+      this.element.classList.remove("lv-cell--alive");
+      this.grid.trackedCells.delete(this);
     }
-  }
-}
-
-class Line extends Element {
-  constructor(parent, id) {
-    super("div", parent, id);
-    this.configureLine();
-  }
-
-  configureLine() {
-    this.element.style.display = "flex";
   }
 }
 
@@ -156,58 +67,70 @@ class Grid extends Element {
   constructor(playable, parent, id) {
     super("div", parent, id);
     this.playable = playable;
-    this.trackedCells = [];
+    this.trackedCells = new Set();
     this.cells = [];
+    this.cellSize = "20px";
     this.baseInterval = 2000;
     this.gridSize = { x: 10, y: 10 };
     this.isPlaying = false;
     this.timerId = null;
     this.dbId;
     this.devider = 1;
-    this.count = 0;
     this.configureGrid();
   }
 
+  getCell(x, y) {
+    return this.cells[(y - 1) * this.gridSize.x + (x - 1)];
+  }
+
   configureGrid() {
-    this.element.style.width = "fit-content";
-    this.waitMounting(this.createCells.bind(this));
+    const root = this.element;
+    root.style.width = "fit-content";
+    this.createCells();
   }
 
   createCells() {
-    this.element.innerHTML = ""; //réinitialisation
+    const root = this.element;
+    root.innerHTML = "";
     this.cells = [];
-    this.trackedCells = [];
+    this.trackedCells = new Set();
+
+    root.style.display = "grid";
+    root.style.gridTemplateColumns = `repeat(${this.gridSize.x}, ${this.cellSize})`;
+    root.style.gridAutoRows = this.cellSize;
+
+    const fragment = document.createDocumentFragment();
 
     for (let y = 1; y <= this.gridSize.y; y++) {
-      const line = new Line(this.element);
       for (let x = 1; x <= this.gridSize.x; x++) {
         const cell = new Cell(
           this.playable,
           x,
           y,
-          line.element,
+          fragment,
           this,
           `${this.id}x${x}y${y}`,
+          this.cellSize,
         );
         this.cells.push(cell);
-        line.waitMounting(cell.mount.bind(cell));
       }
-      this.waitMounting(line.mount.bind(line));
     }
-  }
-
-  popUntrackedCells() {
-    this.trackedCells = this.trackedCells.filter((cell) => {
-      return cell.neighbours != 0 || cell.isAlive;
-    });
+    root.appendChild(fragment);
+    this.syncVisualsFromState();
   }
 
   resize(value) {
     if (typeof value == "string") {
+      this.cellSize = value;
+      const root = this.element;
+      root.style.gridTemplateColumns = `repeat(${this.gridSize.x}, ${value})`;
+      root.style.gridAutoRows = value;
       this.cells.forEach((cell) => {
+        cell.cellSize = value;
         cell.element.style.width = value;
         cell.element.style.height = value;
       });
+      this.syncVisualsFromState();
     } else {
       this.gridSize.x = value.x;
       this.gridSize.y = value.y;
@@ -217,28 +140,31 @@ class Grid extends Element {
 
   getAliveCellsCoords() {
     const aliveCellsCoords = [];
-    this.trackedCells.forEach(({ x, y, isAlive }) => {
-      if (isAlive) {
-        aliveCellsCoords.push({ x, y });
-      }
-    });
+    for (const cell of this.trackedCells) {
+      aliveCellsCoords.push({ x: cell.x, y: cell.y });
+    }
     return aliveCellsCoords;
   }
 
-  toggleCells(cellsToToggle, click = false) {
-    cellsToToggle.forEach(({ x, y }) => {
-      const cellToToggle = document.getElementById(`${this.id}x${x}y${y}`);
-      if (click) {
-        cellToToggle.click();
-      } else {
-        cellToToggle.style.backgroundColor = "black";
+  applyAliveCells(coords) {
+    for (const { x, y } of coords) {
+      const cell = this.getCell(x, y);
+      if (cell && !cell.isAlive) {
+        cell.setLife(true);
       }
-    });
+    }
+    this.syncVisualsFromState();
   }
 
-  loadGrid(aliveCellsCoords, gridSize, click = false) {
+  syncVisualsFromState() {
+    for (const cell of this.cells) {
+      cell.element.classList.toggle("lv-cell--alive", cell.isAlive);
+    }
+  }
+
+  loadGrid(aliveCellsCoords, gridSize) {
     this.resize({ x: gridSize.x, y: gridSize.y });
-    this.toggleCells(aliveCellsCoords, click);
+    this.applyAliveCells(aliveCellsCoords);
     console.log("Grille chargée");
   }
 
@@ -251,25 +177,40 @@ class Grid extends Element {
   }
 
   nextState() {
-    this.trackedCells.forEach((cell) => {
-      cell.willItBeAlive();
-    });
-    this.trackedCells.forEach((cell) => {
-      if (cell.isAlive != cell.willBeAlive) {
-        cell.setLife(cell.willBeAlive);
-        cell.handleNeighbours(cell.willBeAlive);
+    const liveNeighborCount = new Map();
+    const maxX = this.gridSize.x;
+    const maxY = this.gridSize.y;
+
+    for (const live of this.trackedCells) {
+      const { x: cx, y: cy } = live;
+      for (const [dx, dy] of NEIGHBOR_OFFSETS) {
+        const i = cx + dx;
+        const j = cy + dy;
+        if (i < 1 || i > maxX || j < 1 || j > maxY) continue;
+        const c = this.getCell(i, j);
+        liveNeighborCount.set(c, (liveNeighborCount.get(c) ?? 0) + 1);
       }
-    });
+    }
+
+    const candidates = new Set(this.trackedCells);
+    for (const c of liveNeighborCount.keys()) {
+      candidates.add(c);
+    }
+
+    for (const cell of candidates) {
+      const n = liveNeighborCount.get(cell) ?? 0;
+      const alive = cell.isAlive;
+      cell.willBeAlive = n === 3 || (alive && n === 2);
+    }
+    for (const cell of candidates) {
+      if (cell.isAlive !== cell.willBeAlive) cell.setLife(cell.willBeAlive);
+    }
   }
 
   play() {
     this.isPlaying = true;
     this.timerId = setTimeout(() => {
       this.nextState();
-      this.count++;
-      if (this.count % 20 == 0) {
-        this.popUntrackedCells();
-      }
       this.play();
     }, this.baseInterval / this.devider);
   }
@@ -280,10 +221,4 @@ class Grid extends Element {
   }
 }
 
-class Container extends Element {
-  constructor(id, parent) {
-    super("div", id, parent);
-  }
-}
-
-export { Container, Grid };
+export { Grid };

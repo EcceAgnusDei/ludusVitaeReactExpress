@@ -17,7 +17,6 @@ const Game = () => {
     if (!el) return;
 
     const grid = new Grid(true, el, "gamegrid");
-    grid.mount();
     gridRef.current = grid;
 
     const xIn = gridSizeInputXRef.current;
@@ -58,9 +57,9 @@ const Game = () => {
     const x = parseInt(gridSizeInputX.value, 10);
     const y = parseInt(gridSizeInputY.value, 10);
     if (x > 0 && x < 101 && y > 0 && y < 101) {
-      const cellsToClick = grid.getAliveCellsCoords();
+      const aliveBefore = grid.getAliveCellsCoords();
       grid.resize({ x, y });
-      grid.toggleCells(cellsToClick, true);
+      grid.applyAliveCells(aliveBefore);
       gridSizeInputX.value = `${x}`;
       gridSizeInputY.value = `${y}`;
     } else {
@@ -75,9 +74,7 @@ const Game = () => {
 
     const n = parseInt(cellSizeInput.value, 10);
     if (n > 1 && n < 71) {
-      const cellsToClick = grid.getAliveCellsCoords();
       grid.resize(`${n}px`);
-      grid.toggleCells(cellsToClick, true);
       cellSizeInput.value = "";
     } else {
       cellSizeInput.value = "";
@@ -109,7 +106,7 @@ const Game = () => {
       const raw = localStorage.getItem("grid");
       if (!raw) throw new Error("empty");
       const localGrid = JSON.parse(raw);
-      grid.loadGrid(localGrid.aliveCells, localGrid.gridSize, true);
+      grid.loadGrid(localGrid.aliveCells, localGrid.gridSize);
       alert("Grille chargée");
     } catch {
       alert("Impossible de charger la grille");
