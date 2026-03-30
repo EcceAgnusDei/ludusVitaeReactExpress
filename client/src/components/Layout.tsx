@@ -3,12 +3,12 @@ import Header from "./Header";
 
 function Layout() {
   return (
-    <>
-      {/* Header en haut */}
+    <div className="flex min-h-dvh flex-col">
       <Header />
-      {/* Zone où s'affichent les pages */}
-      <Outlet /> {/* ← C'est ici que les pages apparaissent */}
-    </>
+      <div className="flex min-h-0 flex-1 flex-col">
+        <Outlet />
+      </div>
+    </div>
   );
 }
 

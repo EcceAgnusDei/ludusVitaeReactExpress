@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 
@@ -72,17 +72,7 @@ export function SignInForm({ onClose }: { onClose?: () => void }) {
 
   if (loginSucceeded) {
     return (
-      <Card className="w-full relative">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute right-3 top-3"
-          onClick={() => onClose?.()}
-          aria-label="Fermer"
-        >
-          <X />
-        </Button>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Connexion réussie</CardTitle>
           <CardDescription>Tu es maintenant connecté.</CardDescription>
@@ -97,18 +87,7 @@ export function SignInForm({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <Card className="w-full relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="absolute right-3 top-3"
-        onClick={() => onClose?.()}
-        disabled={isLoading}
-        aria-label="Fermer"
-      >
-        <X />
-      </Button>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Se connecter</CardTitle>
         <CardDescription>Entre ton email et ton mot de passe.</CardDescription>

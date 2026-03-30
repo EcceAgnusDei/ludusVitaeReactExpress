@@ -15,7 +15,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { Label } from "@/components/ui/label";
 
@@ -82,17 +82,7 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
 
   if (registrationSucceeded) {
     return (
-      <Card className="w-full relative">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="absolute right-3 top-3"
-          onClick={() => onClose?.()}
-          aria-label="Fermer"
-        >
-          <X />
-        </Button>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle>Inscription réussie</CardTitle>
           <CardDescription>Le compte a bien été créé.</CardDescription>
@@ -107,18 +97,7 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
   }
 
   return (
-    <Card className="w-full relative">
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
-        className="absolute right-3 top-3"
-        onClick={() => onClose?.()}
-        disabled={isLoading}
-        aria-label="Fermer"
-      >
-        <X />
-      </Button>
+    <Card className="w-full">
       <CardHeader>
         <CardTitle>Créer un compte</CardTitle>
         <CardDescription>

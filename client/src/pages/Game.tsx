@@ -1,34 +1,47 @@
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 
 import { Grid } from "../game.js";
+
+/** Plafond largeur × hauteur : au-delà, trop de nœuds DOM pour rester fluide dans le navigateur. */
+const MAX_GRID_CELLS = 20_000;
 
 const Game = () => {
   const gridContainerRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<Grid | null>(null);
-  const gridSizeInputXRef = useRef<HTMLInputElement>(null);
-  const gridSizeInputYRef = useRef<HTMLInputElement>(null);
-  const cellSizeInputRef = useRef<HTMLInputElement>(null);
   const [playing, setPlaying] = useState(false);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
+  const [gridSizeInputs, setGridSizeInputs] = useState({ x: "", y: "" });
+  const [cellSizeInput, setCellSizeInput] = useState("");
 
-  useEffect(() => {
+  const syncInputsFromGrid = () => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    setGridSizeInputs({
+      x: `${grid.gridSize.x}`,
+      y: `${grid.gridSize.y}`,
+    });
+    const raw = String(grid.cellSize).replace(/px$/i, "").trim();
+  };
+
+  useLayoutEffect(() => {
     const el = gridContainerRef.current;
     if (!el) return;
 
     const grid = new Grid(true, el, "gamegrid");
     gridRef.current = grid;
-
-    const xIn = gridSizeInputXRef.current;
-    const yIn = gridSizeInputYRef.current;
-    if (xIn) xIn.value = `${grid.gridSize.x}`;
-    if (yIn) yIn.value = `${grid.gridSize.y}`;
+    syncInputsFromGrid();
 
     return () => {
       grid.pause();
       gridRef.current = null;
       el.replaceChildren();
       setPlaying(false);
+      setGridSizeInputs({ x: "", y: "" });
+      setCellSizeInput("");
     };
   }, []);
 
@@ -50,36 +63,56 @@ const Game = () => {
 
   const handleGridSize = () => {
     const grid = gridRef.current;
-    const gridSizeInputX = gridSizeInputXRef.current;
-    const gridSizeInputY = gridSizeInputYRef.current;
-    if (!grid || !gridSizeInputX || !gridSizeInputY) return;
+    if (!grid) return;
 
-    const x = parseInt(gridSizeInputX.value, 10);
-    const y = parseInt(gridSizeInputY.value, 10);
-    if (x > 0 && x < 101 && y > 0 && y < 101) {
+    const x = parseInt(gridSizeInputs.x, 10);
+    const y = parseInt(gridSizeInputs.y, 10);
+    const total = x * y;
+    if (
+      Number.isInteger(x) &&
+      Number.isInteger(y) &&
+      x >= 1 &&
+      y >= 1 &&
+      total <= MAX_GRID_CELLS
+    ) {
       const aliveBefore = grid.getAliveCellsCoords();
       grid.resize({ x, y });
       grid.applyAliveCells(aliveBefore);
-      gridSizeInputX.value = `${x}`;
-      gridSizeInputY.value = `${y}`;
+      syncInputsFromGrid();
     } else {
-      alert("Entrez une valeur entre 1 et 100");
+      setNoticeMessage(
+        `Largeur et hauteur entières ≥ 1, avec au plus ${MAX_GRID_CELLS.toLocaleString("fr-FR")} cellules au total (largeur × hauteur).`,
+      );
     }
   };
 
   const handleCellSize = () => {
     const grid = gridRef.current;
-    const cellSizeInput = cellSizeInputRef.current;
-    if (!grid || !cellSizeInput) return;
+    if (!grid) return;
 
-    const n = parseInt(cellSizeInput.value, 10);
-    if (n > 1 && n < 71) {
-      grid.resize(`${n}px`);
-      cellSizeInput.value = "";
-    } else {
-      cellSizeInput.value = "";
-      alert("Entrez une valeur entre 0 et 70");
+    const trimmed = cellSizeInput.trim();
+    const n = Number(trimmed);
+
+    if (!Number.isFinite(n)) {
+      setNoticeMessage("Entrez une valeur entière supérieure à 0.");
+      syncInputsFromGrid();
+      return;
     }
+    if (!Number.isInteger(n)) {
+      setNoticeMessage(
+        "La taille d'une cellule doit être un entier (en pixels).",
+      );
+      syncInputsFromGrid();
+      return;
+    }
+    if (n < 1) {
+      setNoticeMessage("Entrez une valeur entière supérieure à 0.");
+      syncInputsFromGrid();
+      return;
+    }
+
+    grid.resize(`${n}px`);
+    syncInputsFromGrid();
   };
 
   const handleSaveLocaly = () => {
@@ -93,9 +126,9 @@ const Game = () => {
           gridSize: grid.gridSize,
         }),
       );
-      alert("Grille enregistrée");
+      setNoticeMessage("Grille enregistrée");
     } catch {
-      alert("Impossible d'enregistrer");
+      setNoticeMessage("Impossible d'enregistrer");
     }
   };
 
@@ -105,81 +138,120 @@ const Game = () => {
     try {
       const raw = localStorage.getItem("grid");
       if (!raw) throw new Error("empty");
-      const localGrid = JSON.parse(raw);
+      const localGrid = JSON.parse(raw) as {
+        aliveCells: Parameters<Grid["loadGrid"]>[0];
+        gridSize: Parameters<Grid["loadGrid"]>[1];
+      };
       grid.loadGrid(localGrid.aliveCells, localGrid.gridSize);
-      alert("Grille chargée");
+      syncInputsFromGrid();
+      setNoticeMessage("Grille chargée");
     } catch {
-      alert("Impossible de charger la grille");
+      setNoticeMessage("Impossible de charger la grille");
     }
   };
 
   return (
     <main
       id="gamecontainer"
-      className="flex flex-col gap-4 p-4 [&_input]:rounded-md [&_input]:border [&_input]:border-border [&_input]:bg-background [&_input]:px-2 [&_input]:py-1 [&_input]:text-sm"
+      className="flex min-h-0 flex-1 flex-col gap-4 p-4 [&_input]:rounded-md [&_input]:border [&_input]:border-border [&_input]:bg-background [&_input]:px-2 [&_input]:py-1 [&_input]:text-sm"
     >
-      <div id="gridcontainer" ref={gridContainerRef} />
+      <div
+        id="gridcontainer"
+        ref={gridContainerRef}
+        className="grid min-h-0 min-w-0 max-w-full flex-1 place-items-center overflow-auto p-2"
+      />
 
-      <Button type="button" onClick={handlePlay}>
-        {playing ? "Pause" : "Play"}
-      </Button>
-
-      <label className="flex flex-col gap-1 text-sm">
-        <span>Vitesse</span>
-        <input
-          type="range"
-          min={1}
-          max={100}
-          defaultValue={1}
-          onInput={(e) => handleSpeed(Number(e.currentTarget.value))}
-        />
-      </label>
-
-      <fieldset className="flex flex-wrap items-end gap-2 border-0 p-0">
-        <legend className="sr-only">Taille de la grille</legend>
-        <input
-          ref={gridSizeInputXRef}
-          min={0}
-          type="number"
-          defaultValue={0}
-          placeholder="Taille horizontale de la grille"
-          aria-label="Taille horizontale de la grille"
-        />
-        <input
-          ref={gridSizeInputYRef}
-          min={0}
-          type="number"
-          defaultValue={0}
-          placeholder="Taille verticale de la grille"
-          aria-label="Taille verticale de la grille"
-        />
-        <Button type="button" variant="secondary" onClick={handleGridSize}>
-          Ok grille
+      <div className="mx-auto flex max-w-[min(18rem,100%)] flex-col items-center gap-4">
+        <Button type="button" onClick={handlePlay}>
+          {playing ? "Pause" : "Play"}
         </Button>
-      </fieldset>
 
-      <fieldset className="flex flex-wrap items-end gap-2 border-0 p-0">
-        <legend className="sr-only">Taille des cellules</legend>
-        <input
-          ref={cellSizeInputRef}
-          type="number"
-          placeholder="Taille d'une cellule"
-          aria-label="Taille d'une cellule en pixels"
-        />
-        <Button type="button" variant="secondary" onClick={handleCellSize}>
-          Ok cellule
-        </Button>
-      </fieldset>
+        <label className="flex w-full flex-col gap-1 text-sm">
+          <span>Vitesse</span>
+          <input
+            type="range"
+            min={1}
+            max={100}
+            defaultValue={1}
+            className="w-full"
+            onInput={(e) => handleSpeed(Number(e.currentTarget.value))}
+          />
+        </label>
 
-      <fieldset className="flex flex-wrap gap-2 border-0 p-0">
-        <legend className="sr-only">Sauvegarde locale</legend>
-        <Button type="button" variant="outline" onClick={handleSaveLocaly}>
-          Sauvegarder localement
-        </Button>
-        <Button type="button" variant="outline" onClick={handleLoad}>
-          Charger
-        </Button>
-      </fieldset>
+        <fieldset className="flex w-full flex-col gap-2 border-0 p-0">
+          <legend className="sr-only">Taille de la grille</legend>
+          <div className="flex flex-wrap items-end justify-center gap-2">
+            <input
+              min={1}
+              type="number"
+              value={gridSizeInputs.x}
+              onChange={(e) =>
+                setGridSizeInputs((s) => ({ ...s, x: e.target.value }))
+              }
+              placeholder="Largeur (colonnes)"
+              aria-label="Largeur de la grille en colonnes"
+              className="w-20 shrink-0"
+            />
+            <input
+              min={1}
+              type="number"
+              value={gridSizeInputs.y}
+              onChange={(e) =>
+                setGridSizeInputs((s) => ({ ...s, y: e.target.value }))
+              }
+              placeholder="Hauteur (lignes)"
+              aria-label="Hauteur de la grille en lignes"
+              className="w-20 shrink-0"
+            />
+            <Button type="button" variant="secondary" onClick={handleGridSize}>
+              Ok
+            </Button>
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Largeur × hauteur ≤ {MAX_GRID_CELLS.toLocaleString("fr-FR")}{" "}
+            cellules au total.
+          </p>
+        </fieldset>
+
+        <fieldset className="flex w-full flex-wrap items-end justify-center gap-2 border-0 p-0">
+          <legend className="sr-only">Taille des cellules</legend>
+          <input
+            min={1}
+            type="number"
+            value={cellSizeInput}
+            onChange={(e) => setCellSizeInput(e.target.value)}
+            placeholder="Taille (px)"
+            aria-label="Taille d'une cellule en pixels"
+            className="w-20 shrink-0"
+          />
+          <Button type="button" variant="secondary" onClick={handleCellSize}>
+            Ok
+          </Button>
+        </fieldset>
+
+        <fieldset className="w-full gap-2 border-0 p-0">
+          <legend className="sr-only">Sauvegarde locale</legend>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-center">
+            <Button type="button" variant="outline" onClick={handleSaveLocaly}>
+              Sauvegarder localement
+            </Button>
+            <Button type="button" variant="outline" onClick={handleLoad}>
+              Charger
+            </Button>
+          </div>
+        </fieldset>
+      </div>
+
+      <Dialog
+        open={noticeMessage !== null}
+        onClose={() => setNoticeMessage(null)}
+      >
+        <Card size="sm" className="w-full">
+          <CardContent className="pt-6">
+            <p className="text-card-foreground">{noticeMessage}</p>
+          </CardContent>
+        </Card>
+      </Dialog>
     </main>
   );
 };

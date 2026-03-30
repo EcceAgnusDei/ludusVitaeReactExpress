@@ -71,7 +71,7 @@ class Grid extends Element {
     this.cells = [];
     this.cellSize = "20px";
     this.baseInterval = 2000;
-    this.gridSize = { x: 10, y: 10 };
+    this.gridSize = { x: 50, y: 30 };
     this.isPlaying = false;
     this.timerId = null;
     this.dbId;
