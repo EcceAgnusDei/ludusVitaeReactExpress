@@ -1,19 +1,8 @@
-import "../load-env.js";
-
 import { betterAuth } from "better-auth";
-import { Pool } from "pg";
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // Optionnel : pour plus de sécurité en prod
-  ssl:
-    process.env.NODE_ENV === "production"
-      ? { rejectUnauthorized: false }
-      : false,
-});
+import { pool } from "./db.js";
 
 export const auth = betterAuth({
-  database: pool, // connexion directe à PostgreSQL
+  database: pool,
   trustedOrigins: [process.env.CLIENT_URL || "http://localhost:5173"],
   emailAndPassword: {
     enabled: true, // active l’auth par email + mot de passe

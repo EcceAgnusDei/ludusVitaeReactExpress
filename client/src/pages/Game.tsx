@@ -25,6 +25,7 @@ const Game = () => {
       y: `${grid.gridSize.y}`,
     });
     const raw = String(grid.cellSize).replace(/px$/i, "").trim();
+    setCellSizeInput(raw);
   };
 
   useLayoutEffect(() => {
@@ -144,7 +145,6 @@ const Game = () => {
       };
       grid.loadGrid(localGrid.aliveCells, localGrid.gridSize);
       syncInputsFromGrid();
-      setNoticeMessage("Grille chargée");
     } catch {
       setNoticeMessage("Impossible de charger la grille");
     }
@@ -220,7 +220,6 @@ const Game = () => {
             type="number"
             value={cellSizeInput}
             onChange={(e) => setCellSizeInput(e.target.value)}
-            placeholder="Taille (px)"
             aria-label="Taille d'une cellule en pixels"
             className="w-20 shrink-0"
           />
