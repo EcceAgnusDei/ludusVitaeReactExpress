@@ -148,7 +148,7 @@ soient cohérentes et respectent le thème (clair/sombre). */
   --sidebar-ring: oklch(0.556 0 0);
 }
 
-/* Jeu de la vie : cellules (game.js) */
+/* Jeu de la vie : cellules (composant Grid) */
 .lv-cell {
   box-sizing: border-box;
   border: 1px solid color-mix(in oklch, var(--foreground) 32%, var(--border));

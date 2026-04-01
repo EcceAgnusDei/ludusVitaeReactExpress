@@ -12,8 +12,13 @@ const app = express();
 const PORT = process.env.PORT || 3000; //ou parseInt(process.env.PORT || "3000", 10);
 const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
-// Middlewares
-app.use(helmet());
+// Middlewares — CORP same-origin empêche le navigateur de lire les réponses API
+// depuis une autre origine (ex. Vite :5173 → Express :3000), même avec CORS.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
 app.use(
   cors({
     origin: CLIENT_URL,

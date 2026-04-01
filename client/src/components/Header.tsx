@@ -77,7 +77,7 @@ export default function Header() {
         id: "my-space",
         kind: "link",
         name: "Mon espace",
-        href: "/monespace",
+        href: "/mon-espace",
         public: false,
       },
       {

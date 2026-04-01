@@ -62,7 +62,7 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
         name: values.name,
         email: values.email,
         password: values.password,
-        // callbackURL: '/dashboard', // optionnel : redirection après inscription réussie
+        // callbackURL: '/mon-espace', // optionnel : redirection après inscription réussie
       });
 
       if (error) {
