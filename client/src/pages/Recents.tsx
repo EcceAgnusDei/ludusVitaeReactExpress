@@ -1,32 +1,26 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
 
 import { SavedGridsGallery } from "@/components/SavedGridsGallery";
-import { authClient } from "@/lib/auth-client";
 import type { SavedGrid } from "@/types/saved-grid";
 
-const Dashboard = () => {
-  const { data: session, isPending: sessionPending } = authClient.useSession();
+const Recents = () => {
   const [grids, setGrids] = useState<SavedGrid[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
-    const userId = session?.user?.id;
-    if (sessionPending || !userId) return;
-
     let cancelled = false;
     setLoadError(null);
 
     void (async () => {
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/grids/user/${encodeURIComponent(userId)}`,
+          `${import.meta.env.VITE_API_BASE_URL}/api/grids/all`,
           { credentials: "include" },
         );
         if (cancelled) return;
 
         if (!res.ok) {
-          setLoadError("Impossible de charger vos grilles.");
+          setLoadError("Impossible de charger les grilles.");
           setGrids([]);
           return;
         }
@@ -52,24 +46,12 @@ const Dashboard = () => {
     return () => {
       cancelled = true;
     };
-  }, [session?.user?.id, sessionPending]);
-
-  if (sessionPending) {
-    return (
-      <main className="flex w-full min-w-0 flex-1 flex-col items-center justify-center p-6">
-        <p className="text-muted-foreground">Chargement…</p>
-      </main>
-    );
-  }
-
-  if (!session?.user) {
-    return <Navigate to="/" replace />;
-  }
+  }, []);
 
   if (grids === null) {
     return (
       <main className="flex w-full min-w-0 flex-1 flex-col items-center justify-center p-6">
-        <p className="text-muted-foreground">Chargement de vos grilles…</p>
+        <p className="text-muted-foreground">Chargement des grilles…</p>
       </main>
     );
   }
@@ -77,19 +59,21 @@ const Dashboard = () => {
   return (
     <main className="flex w-full min-w-0 flex-1 flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Mon espace</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Récents</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Grilles enregistrées sur votre compte.
+          Toutes les grilles, de la plus récemment mise à jour à la plus
+          ancienne.
         </p>
       </div>
 
       <SavedGridsGallery
         grids={grids}
         loadError={loadError}
-        emptyMessage="Aucune grille enregistrée. Enregistrez-en une depuis la page Jouer."
+        emptyMessage="Aucune grille pour le moment."
+        showCreator
       />
     </main>
   );
 };
 
-export default Dashboard;
+export default Recents;

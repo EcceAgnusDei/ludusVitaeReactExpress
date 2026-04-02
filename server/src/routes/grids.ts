@@ -55,14 +55,23 @@ gridsRouter.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
+type GridRowWithCreator = GridRow & { creatorName: string };
+
 gridsRouter.get("/all", async (req, res, next) => {
   try {
-    const { rows } = await pool.query<GridRow>(
-      `select "id", "userId", "name", "data", "createdAt", "updatedAt"
-       from "grid"
-       order by "updatedAt" desc`,
+    const { rows } = await pool.query<GridRowWithCreator>(
+      `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+              u."name" as "creatorName"
+       from "grid" g
+       inner join "user" u on u."id" = g."userId"
+       order by g."updatedAt" desc`,
     );
-    res.json(rows.map(rowToJson));
+    res.json(
+      rows.map((row) => ({
+        ...rowToJson(row),
+        creatorName: row.creatorName,
+      })),
+    );
   } catch (err) {
     next(err);
   }

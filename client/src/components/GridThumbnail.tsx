@@ -51,9 +51,20 @@ function parseGridPayload(data: unknown): ParsedPayload | null {
 type GridThumbnailProps = {
   gridId: string;
   data: unknown;
+  /** Titre affiché sous la grille (dans le composant si `showCreator`, sinon laisser la galerie gérer). */
+  caption?: string | null;
+  showCreator?: boolean;
+  /** Nom affiché (ex. jointure `GET /api/grids/all`). */
+  creatorName?: string | null;
 };
 
-export function GridThumbnail({ gridId, data }: GridThumbnailProps) {
+export function GridThumbnail({
+  gridId,
+  data,
+  caption,
+  showCreator = false,
+  creatorName,
+}: GridThumbnailProps) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [cellPx, setCellPx] = useState(MIN_CELL_PX);
 
@@ -106,20 +117,45 @@ export function GridThumbnail({ gridId, data }: GridThumbnailProps) {
     );
   }
 
+  const captionText = caption?.trim();
+  const captionBlock =
+    captionText != null && captionText.length > 0 ? (
+      <p className="w-full max-w-full truncate text-center text-sm font-medium text-foreground">
+        {captionText}
+      </p>
+    ) : null;
+
+  const creatorTrimmed = creatorName?.trim();
+  const creatorLine = showCreator ? (
+    <p className="w-full max-w-full truncate text-center text-xs text-muted-foreground">
+      {creatorTrimmed != null && creatorTrimmed.length > 0
+        ? `Par ${creatorTrimmed}`
+        : "Créateur inconnu"}
+    </p>
+  ) : null;
+
   return (
-    <div ref={slotRef} className="w-full min-w-0" aria-hidden>
-      <div
-        className="pointer-events-none mx-auto w-fit max-w-full select-none"
-        aria-hidden
-      >
-        <Grid
-          key={gridMountKey}
-          playable={false}
-          initialGridSize={parsed.gridSize}
-          initialAliveCells={parsed.aliveCells}
-          initialCellSize={`${cellPx}px`}
-        />
+    <div className="flex w-full min-w-0 flex-col items-center gap-2">
+      <div ref={slotRef} className="w-full min-w-0" aria-hidden>
+        <div
+          className="pointer-events-none mx-auto w-fit max-w-full select-none"
+          aria-hidden
+        >
+          <Grid
+            key={gridMountKey}
+            playable={false}
+            initialGridSize={parsed.gridSize}
+            initialAliveCells={parsed.aliveCells}
+            initialCellSize={`${cellPx}px`}
+          />
+        </div>
       </div>
+      {showCreator ? (
+        <>
+          {captionBlock}
+          {creatorLine}
+        </>
+      ) : null}
     </div>
   );
 }
