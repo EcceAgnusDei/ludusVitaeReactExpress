@@ -11,8 +11,12 @@ type SavedGridsGalleryProps = {
   showCreator?: boolean;
 };
 
-const cardClass =
-  "flex w-full min-w-0 flex-col items-center gap-2 rounded-md p-1 outline-offset-2 transition-transform duration-200 ease-out hover:scale-[1.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
+/** Conteneur de carte : lien en overlay pour éviter bouton dans `<a>`. */
+const cardShellClass =
+  "relative flex w-full min-w-0 flex-col items-center gap-2 rounded-md p-1 outline-offset-2 transition-transform duration-200 ease-out hover:scale-[1.04]";
+
+const cardLinkOverlayClass =
+  "absolute inset-0 z-0 rounded-md focus-visible:z-[5] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
 
 export function SavedGridsGallery({
   grids,
@@ -45,26 +49,32 @@ export function SavedGridsGallery({
           }
 
           return (
-            <li key={g.id}>
-              <Link
-                to="/"
-                state={{ savedGridData: g.data }}
-                className={cardClass}
-                aria-label={label}
-              >
-                <GridThumbnail
-                  gridId={g.id}
-                  data={g.data}
-                  caption={showCreator ? name : undefined}
-                  showCreator={showCreator}
-                  creatorName={g.creatorName}
+            <li key={g.id} className="w-full min-w-0">
+              <div className={cardShellClass}>
+                <Link
+                  to="/"
+                  state={{ savedGridData: g.data }}
+                  className={cardLinkOverlayClass}
+                  aria-label={label}
                 />
-                {!showCreator && name ? (
-                  <p className="w-full max-w-full truncate text-center text-sm font-medium text-foreground">
-                    {name}
-                  </p>
-                ) : null}
-              </Link>
+                <div className="relative z-[1] flex w-full min-w-0 flex-col items-center gap-2 pointer-events-none">
+                  <GridThumbnail
+                    gridId={g.id}
+                    data={g.data}
+                    caption={showCreator ? name : undefined}
+                    showCreator={showCreator}
+                    creatorName={g.creatorName}
+                    showLikeButton={showCreator}
+                    likedInitial={g.likedByMe ?? false}
+                    likeCountInitial={g.likeCount ?? 0}
+                  />
+                  {!showCreator && name ? (
+                    <p className="w-full max-w-full truncate text-center text-sm font-medium text-foreground">
+                      {name}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </li>
           );
         })}

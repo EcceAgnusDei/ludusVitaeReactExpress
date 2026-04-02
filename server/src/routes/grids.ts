@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { randomUUID } from "crypto";
+import { fromNodeHeaders } from "better-auth/node";
 import { pool } from "../lib/db.js";
+import { auth } from "../lib/auth.js";
 import { requireAuth } from "../middleware/requireAuth.js";
 
 export const gridsRouter = Router();
@@ -13,6 +15,11 @@ type GridRow = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+function routeParamId(value: string | string[] | undefined): string | undefined {
+  if (value == null) return undefined;
+  return Array.isArray(value) ? value[0] : value;
+}
 
 function rowToJson(row: GridRow) {
   return {
@@ -57,21 +64,97 @@ gridsRouter.post("/", requireAuth, async (req, res, next) => {
 
 type GridRowWithCreator = GridRow & { creatorName: string };
 
+type GridRowWithLikes = GridRowWithCreator & {
+  likeCount: number;
+  likedByMe: boolean;
+};
+
 gridsRouter.get("/all", async (req, res, next) => {
   try {
-    const { rows } = await pool.query<GridRowWithCreator>(
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    const viewerId = session?.user.id ?? null;
+    const { rows } = await pool.query<GridRowWithLikes>(
       `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
-              u."name" as "creatorName"
+              u."name" as "creatorName",
+              (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
+              case
+                when $1::text is null then false
+                else exists (
+                  select 1 from "grid_like" l2
+                  where l2."gridId" = g."id" and l2."userId" = $1
+                )
+              end as "likedByMe"
        from "grid" g
        inner join "user" u on u."id" = g."userId"
        order by g."updatedAt" desc`,
+      [viewerId],
     );
     res.json(
       rows.map((row) => ({
         ...rowToJson(row),
         creatorName: row.creatorName,
+        likeCount: row.likeCount,
+        likedByMe: row.likedByMe,
       })),
     );
+  } catch (err) {
+    next(err);
+  }
+});
+
+async function likeCountForGrid(gridId: string): Promise<number> {
+  const { rows } = await pool.query<{ n: number }>(
+    `select count(*)::int as n from "grid_like" where "gridId" = $1`,
+    [gridId],
+  );
+  return rows[0]?.n ?? 0;
+}
+
+gridsRouter.post("/:id/like", requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.userId!;
+    const id = routeParamId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Identifiant de grille manquant" });
+      return;
+    }
+    try {
+      await pool.query(
+        `insert into "grid_like" ("gridId", "userId") values ($1, $2)
+         on conflict do nothing`,
+        [id, userId],
+      );
+    } catch (e: unknown) {
+      const code = (e as { code?: string })?.code;
+      if (code === "23503") {
+        res.status(404).json({ error: "Grille introuvable" });
+        return;
+      }
+      throw e;
+    }
+    const likeCount = await likeCountForGrid(id);
+    res.status(200).json({ liked: true, likeCount });
+  } catch (err) {
+    next(err);
+  }
+});
+
+gridsRouter.delete("/:id/like", requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.userId!;
+    const id = routeParamId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Identifiant de grille manquant" });
+      return;
+    }
+    await pool.query(
+      `delete from "grid_like" where "gridId" = $1 and "userId" = $2`,
+      [id, userId],
+    );
+    const likeCount = await likeCountForGrid(id);
+    res.status(200).json({ liked: false, likeCount });
   } catch (err) {
     next(err);
   }
