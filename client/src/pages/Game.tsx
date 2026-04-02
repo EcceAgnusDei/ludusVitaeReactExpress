@@ -1,4 +1,5 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,7 +17,51 @@ import { Grid, type GridCoord, type GridHandle } from "@/components/Grid";
 /** Plafond largeur × hauteur : au-delà, trop de nœuds DOM pour rester fluide dans le navigateur. */
 const MAX_GRID_CELLS = 20_000;
 
+type PlayLocationState = {
+  savedGridData?: unknown;
+};
+
+//Vérifie que les données de la grille venant de la bd sont valides et les convertit en un objet utilisable par Grid
+function parseSavedGridData(data: unknown): {
+  gridSize: GridCoord;
+  aliveCells: GridCoord[];
+  cellSize: string | null;
+} | null {
+  if (!data || typeof data !== "object") return null;
+  const d = data as Record<string, unknown>;
+  const gridSizeRaw = d.gridSize;
+  const aliveRaw = d.aliveCells;
+  if (!gridSizeRaw || typeof gridSizeRaw !== "object") return null;
+  const gx = (gridSizeRaw as { x?: unknown }).x;
+  const gy = (gridSizeRaw as { y?: unknown }).y;
+  if (!Number.isFinite(gx) || !Number.isFinite(gy)) return null;
+  const x = Number(gx);
+  const y = Number(gy);
+  if (!Number.isInteger(x) || !Number.isInteger(y) || x < 1 || y < 1)
+    return null;
+  if (!Array.isArray(aliveRaw)) return null;
+
+  const aliveCells: GridCoord[] = [];
+  for (const c of aliveRaw) {
+    if (!c || typeof c !== "object") continue;
+    const cx = (c as { x?: unknown }).x;
+    const cy = (c as { y?: unknown }).y;
+    if (!Number.isFinite(cx) || !Number.isFinite(cy)) continue;
+    aliveCells.push({ x: Number(cx), y: Number(cy) });
+  }
+
+  const cellSizeRaw = d.cellSize;
+  const cellSize =
+    typeof cellSizeRaw === "string" && cellSizeRaw.trim().length > 0
+      ? cellSizeRaw.trim()
+      : null;
+
+  return { aliveCells, gridSize: { x, y }, cellSize };
+}
+
 const Game = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const gridRef = useRef<GridHandle | null>(null);
   const { data: session, isPending: sessionPending } = authClient.useSession();
   const isLoggedIn = Boolean(session?.user);
@@ -36,6 +81,7 @@ const Game = () => {
   const [loadedSnapshot, setLoadedSnapshot] = useState<{
     gridSize: GridCoord;
     aliveCells: GridCoord[];
+    cellSize?: string | null;
   } | null>(null);
 
   const syncInputsFromGrid = () => {
@@ -52,6 +98,31 @@ const Game = () => {
   useLayoutEffect(() => {
     syncInputsFromGrid();
   }, [gridInstanceKey]);
+
+  useEffect(() => {
+    const state = location.state as PlayLocationState | null; //récupère l'état de la grille passée au navigateur lorsqu'on ouvre une grille depuis le dashboard
+    if (
+      !state ||
+      !Object.prototype.hasOwnProperty.call(state, "savedGridData")
+    ) {
+      return;
+    }
+
+    const parsed = parseSavedGridData(state.savedGridData);
+    if (!parsed) {
+      setNoticeMessage("Données de grille invalides.");
+    } else {
+      setPlaying(false);
+      setLoadedSnapshot({
+        gridSize: parsed.gridSize,
+        aliveCells: parsed.aliveCells,
+        cellSize: parsed.cellSize,
+      });
+      setGridInstanceKey((k) => k + 1);
+    }
+
+    navigate(location.pathname, { replace: true, state: {} }); //nétoie l'état (savedGridData etc) passé au navigateur pour ne pas le réutiliser lors du chargement de la page
+  }, [location.state, location.pathname, navigate]);
 
   const handlePlay = () => {
     const grid = gridRef.current;
@@ -254,6 +325,7 @@ const Game = () => {
           playable
           initialGridSize={loadedSnapshot?.gridSize}
           initialAliveCells={loadedSnapshot?.aliveCells}
+          initialCellSize={loadedSnapshot?.cellSize ?? null}
         />
       </div>
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 
 import { GridThumbnail } from "@/components/GridThumbnail";
 import { authClient } from "@/lib/auth-client";
@@ -106,18 +106,28 @@ const Dashboard = () => {
       <ul className="grid min-w-0 gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {grids.map((g) => {
           const name = g.name?.trim();
+          const label =
+            name != null && name.length > 0
+              ? `Ouvrir la grille « ${name} » dans Jouer`
+              : "Ouvrir cette grille dans Jouer";
+          const cardClass =
+            "flex w-full min-w-0 flex-col items-center gap-2 rounded-md p-1 outline-offset-2 transition-transform duration-200 ease-out hover:scale-[1.04] focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring";
 
           return (
-            <li
-              key={g.id}
-              className="flex min-w-0 flex-col items-center gap-2"
-            >
-              <GridThumbnail gridId={g.id} data={g.data} />
-              {name ? (
-                <p className="w-full max-w-full text-center truncate text-sm font-medium">
-                  {name}
-                </p>
-              ) : null}
+            <li key={g.id}>
+              <Link //on va à la page Jeu en faisant passer les données de la grille
+                to="/"
+                state={{ savedGridData: g.data }}
+                className={cardClass}
+                aria-label={label}
+              >
+                <GridThumbnail gridId={g.id} data={g.data} />
+                {name ? (
+                  <p className="w-full max-w-full truncate text-center text-sm font-medium text-foreground">
+                    {name}
+                  </p>
+                ) : null}
+              </Link>
             </li>
           );
         })}
