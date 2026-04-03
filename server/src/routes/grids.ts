@@ -166,17 +166,40 @@ gridsRouter.delete("/:id/like", requireAuth, async (req, res, next) => {
   }
 });
 
+type GridRowWithLikeFields = GridRow & {
+  likeCount: number;
+  likedByMe: boolean;
+};
+
 gridsRouter.get("/user/:userId", async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { rows } = await pool.query<GridRow>(
-      `select "id", "userId", "name", "data", "createdAt", "updatedAt"
-       from "grid"
-       where "userId" = $1
-       order by "updatedAt" desc`,
-      [userId],
+    const session = await auth.api.getSession({
+      headers: fromNodeHeaders(req.headers),
+    });
+    const viewerId = session?.user.id ?? null;
+    const { rows } = await pool.query<GridRowWithLikeFields>(
+      `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+              (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
+              case
+                when $2::text is null then false
+                else exists (
+                  select 1 from "grid_like" l2
+                  where l2."gridId" = g."id" and l2."userId" = $2
+                )
+              end as "likedByMe"
+       from "grid" g
+       where g."userId" = $1
+       order by g."updatedAt" desc`,
+      [userId, viewerId],
     );
-    res.json(rows.map(rowToJson));
+    res.json(
+      rows.map((row) => ({
+        ...rowToJson(row),
+        likeCount: row.likeCount,
+        likedByMe: row.likedByMe,
+      })),
+    );
   } catch (err) {
     next(err);
   }

@@ -1,10 +1,6 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Heart } from "lucide-react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Grid } from "@/components/Grid";
-import { Button } from "@/components/ui/button";
-import { authClient } from "@/lib/auth-client";
-import { cn } from "@/lib/utils";
 
 const MIN_CELL_PX = 2;
 /** Largeur cible max de la miniature (px), sans dépasser le slot. */
@@ -60,10 +56,6 @@ type GridThumbnailProps = {
   showCreator?: boolean;
   /** Nom affiché (ex. jointure `GET /api/grids/all`). */
   creatorName?: string | null;
-  /** J’aime / retirer le j’aime (ex. page Récents, utilisateur connecté uniquement). */
-  showLikeButton?: boolean;
-  likedInitial?: boolean;
-  likeCountInitial?: number;
 };
 
 export function GridThumbnail({
@@ -72,21 +64,9 @@ export function GridThumbnail({
   caption,
   showCreator = false,
   creatorName,
-  showLikeButton = false,
-  likedInitial = false,
-  likeCountInitial = 0,
 }: GridThumbnailProps) {
   const slotRef = useRef<HTMLDivElement>(null);
   const [cellPx, setCellPx] = useState(MIN_CELL_PX);
-  const { data: session, isPending: sessionPending } = authClient.useSession();
-  const [liked, setLiked] = useState(likedInitial);
-  const [likeCount, setLikeCount] = useState(likeCountInitial);
-  const [likePending, setLikePending] = useState(false);
-
-  useEffect(() => {
-    setLiked(likedInitial);
-    setLikeCount(likeCountInitial);
-  }, [gridId, likedInitial, likeCountInitial]);
 
   const parsed = useMemo(() => parseGridPayload(data), [data]);
 
@@ -154,32 +134,6 @@ export function GridThumbnail({
     </p>
   ) : null;
 
-  const showLike =
-    showLikeButton && !sessionPending && session?.user != null;
-
-  const toggleLike = async () => {
-    if (likePending) return;
-    setLikePending(true);
-    try {
-      const method = liked ? "DELETE" : "POST";
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL}/api/grids/${encodeURIComponent(gridId)}/like`,
-        { method, credentials: "include" },
-      );
-      if (!res.ok) return;
-      const body = (await res.json()) as {
-        liked?: unknown;
-        likeCount?: unknown;
-      };
-      if (typeof body.liked === "boolean" && typeof body.likeCount === "number") {
-        setLiked(body.liked);
-        setLikeCount(body.likeCount);
-      }
-    } finally {
-      setLikePending(false);
-    }
-  };
-
   return (
     <div className="flex w-full min-w-0 flex-col items-center gap-2">
       <div ref={slotRef} className="relative w-full min-w-0">
@@ -197,40 +151,6 @@ export function GridThumbnail({
             />
           </div>
         </div>
-        {showLike ? (
-          <div className="absolute bottom-1 right-1 z-10 flex items-center gap-1 pointer-events-auto">
-            <Button
-              type="button"
-              variant="secondary"
-              size="icon-sm"
-              className="border border-border/80 bg-background/90 shadow-sm backdrop-blur-sm"
-              disabled={likePending}
-              aria-pressed={liked}
-              aria-label={
-                liked
-                  ? "Ne plus aimer cette grille"
-                  : "Aimer cette grille"
-              }
-              onClick={(e) => {
-                e.preventDefault();
-                void toggleLike();
-              }}
-            >
-              <Heart
-                className={cn(
-                  liked && "fill-destructive text-destructive",
-                )}
-                aria-hidden
-              />
-            </Button>
-            <span
-              className="min-w-6 rounded-md border border-border/80 bg-background/90 px-1.5 py-0.5 text-center text-xs font-medium tabular-nums shadow-sm backdrop-blur-sm"
-              aria-live="polite"
-            >
-              {likeCount}
-            </span>
-          </div>
-        ) : null}
       </div>
       {showCreator ? (
         <>
