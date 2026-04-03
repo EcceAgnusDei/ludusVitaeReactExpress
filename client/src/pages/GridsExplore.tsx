@@ -3,7 +3,28 @@ import { useEffect, useState } from "react";
 import { SavedGridsGallery } from "@/components/SavedGridsGallery";
 import type { SavedGrid } from "@/types/saved-grid";
 
-const Recents = () => {
+export type GridsExploreVariant = "recent" | "popular";
+
+const VARIANT = {
+  recent: {
+    title: "Récents",
+    description: "Toutes les grilles, de la plus récente à la plus ancienne.",
+    apiPath: "/api/grids/all",
+  },
+  popular: {
+    title: "Populaires",
+    description: "Grilles les plus appréciées, du plus de likes au moins",
+    apiPath: "/api/grids/all?sort=popular",
+  },
+} as const satisfies Record<
+  GridsExploreVariant,
+  { title: string; description: string; apiPath: string }
+>;
+
+type GridsExploreProps = { variant: GridsExploreVariant };
+
+export function GridsExplore({ variant }: GridsExploreProps) {
+  const { title, description, apiPath } = VARIANT[variant];
   const [grids, setGrids] = useState<SavedGrid[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -14,7 +35,7 @@ const Recents = () => {
     void (async () => {
       try {
         const res = await fetch(
-          `${import.meta.env.VITE_API_BASE_URL}/api/grids/all`,
+          `${import.meta.env.VITE_API_BASE_URL}${apiPath}`,
           { credentials: "include" },
         );
         if (cancelled) return;
@@ -46,7 +67,7 @@ const Recents = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [apiPath]);
 
   if (grids === null) {
     return (
@@ -59,11 +80,8 @@ const Recents = () => {
   return (
     <main className="flex w-full min-w-0 flex-1 flex-col gap-6 p-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Récents</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Toutes les grilles, de la plus récemment mise à jour à la plus
-          ancienne.
-        </p>
+        <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
       </div>
 
       <SavedGridsGallery
@@ -74,6 +92,4 @@ const Recents = () => {
       />
     </main>
   );
-};
-
-export default Recents;
+}

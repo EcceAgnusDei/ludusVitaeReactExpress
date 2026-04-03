@@ -75,6 +75,8 @@ gridsRouter.get("/all", async (req, res, next) => {
       headers: fromNodeHeaders(req.headers),
     });
     const viewerId = session?.user.id ?? null;
+    const sortPopular = req.query.sort === "popular";
+    const sortMode = sortPopular ? "popular" : "recent";
     const { rows } = await pool.query<GridRowWithLikes>(
       `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
               u."name" as "creatorName",
@@ -88,8 +90,12 @@ gridsRouter.get("/all", async (req, res, next) => {
               end as "likedByMe"
        from "grid" g
        inner join "user" u on u."id" = g."userId"
-       order by g."updatedAt" desc`,
-      [viewerId],
+       order by
+         (case when $2::text = 'popular'
+           then (select count(*)::int from "grid_like" l3 where l3."gridId" = g."id")
+         end) desc nulls last,
+         g."updatedAt" desc`,
+      [viewerId, sortMode],
     );
     res.json(
       rows.map((row) => ({
