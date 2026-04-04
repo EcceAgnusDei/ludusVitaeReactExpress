@@ -16,7 +16,9 @@ type GridRow = {
   updatedAt: Date;
 };
 
-function routeParamId(value: string | string[] | undefined): string | undefined {
+function routeParamId(
+  value: string | string[] | undefined,
+): string | undefined {
   if (value == null) return undefined;
   return Array.isArray(value) ? value[0] : value;
 }
@@ -110,6 +112,39 @@ gridsRouter.get("/all", async (req, res, next) => {
   }
 });
 
+type GridRowLikedByMe = GridRowWithCreator & {
+  likeCount: number;
+  likedByMe: boolean;
+};
+
+gridsRouter.get("/me/likes", requireAuth, async (req, res, next) => {
+  try {
+    const userId = req.userId!;
+    const { rows } = await pool.query<GridRowLikedByMe>(
+      `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+              u."name" as "creatorName",
+              (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
+              true as "likedByMe"
+       from "grid_like" gl
+       inner join "grid" g on g."id" = gl."gridId"
+       inner join "user" u on u."id" = g."userId"
+       where gl."userId" = $1
+       order by gl."createdAt" desc`,
+      [userId],
+    );
+    res.json(
+      rows.map((row) => ({
+        ...rowToJson(row),
+        creatorName: row.creatorName,
+        likeCount: row.likeCount,
+        likedByMe: row.likedByMe,
+      })),
+    );
+  } catch (err) {
+    next(err);
+  }
+});
+
 async function likeCountForGrid(gridId: string): Promise<number> {
   const { rows } = await pool.query<{ n: number }>(
     `select count(*)::int as n from "grid_like" where "gridId" = $1`,
@@ -178,6 +213,8 @@ gridsRouter.get("/user/:userId", async (req, res, next) => {
       headers: fromNodeHeaders(req.headers),
     });
     const viewerId = session?.user.id ?? null;
+    const sortPopular = req.query.sort === "popular";
+    const sortMode = sortPopular ? "popular" : "recent";
     const { rows } = await pool.query<GridRowWithLikeFields>(
       `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
               (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
@@ -190,8 +227,12 @@ gridsRouter.get("/user/:userId", async (req, res, next) => {
               end as "likedByMe"
        from "grid" g
        where g."userId" = $1
-       order by g."updatedAt" desc`,
-      [userId, viewerId],
+       order by
+         (case when $3::text = 'popular'
+           then (select count(*)::int from "grid_like" l3 where l3."gridId" = g."id")
+         end) desc nulls last,
+         g."updatedAt" desc`,
+      [userId, viewerId, sortMode],
     );
     res.json(
       rows.map((row) => ({
@@ -247,10 +288,7 @@ gridsRouter.patch("/:id", requireAuth, async (req, res, next) => {
       res.status(400).json({ error: "name doit être une chaîne ou null" });
       return;
     }
-    if (
-      hasData &&
-      (body.data === null || typeof body.data !== "object")
-    ) {
+    if (hasData && (body.data === null || typeof body.data !== "object")) {
       res.status(400).json({ error: "data doit être un objet" });
       return;
     }
