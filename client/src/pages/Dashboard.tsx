@@ -63,8 +63,8 @@ export function MonEspaceTabPanel({ variant }: { variant: MonEspaceVariant }) {
         if (variant === "likes") {
           url = `${import.meta.env.VITE_API_BASE_URL}/api/grids/me/likes`;
         } else {
-          const sort = variant === "popular" ? "?sort=popular" : "";
-          url = `${import.meta.env.VITE_API_BASE_URL}/api/grids/user/${encodeURIComponent(userId)}${sort}`;
+          const sort = variant === "popular" ? "popular" : "recent";
+          url = `${import.meta.env.VITE_API_BASE_URL}/api/grids/user/${encodeURIComponent(userId)}?sort=${sort}`;
         }
 
         const res = await fetch(url, { credentials: "include" });
@@ -83,13 +83,14 @@ export function MonEspaceTabPanel({ variant }: { variant: MonEspaceVariant }) {
         }
 
         const body = (await res.json()) as unknown;
-        if (!Array.isArray(body)) {
+        const items = Array.isArray(body) ? (body as SavedGrid[]) : null;
+        if (items === null) {
           setLoadError("Réponse serveur inattendue.");
           setGrids([]);
           return;
         }
 
-        setGrids(body as SavedGrid[]); //on fait confiance au backend ici
+        setGrids(items);
       } catch {
         if (!cancelled) {
           setLoadError(

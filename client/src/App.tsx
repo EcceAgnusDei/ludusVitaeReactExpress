@@ -15,19 +15,13 @@ function App() {
         <Route element={<Layout />}>
           <Route path="/" element={<Game />} />
           <Route path="/creations" element={<Creations />} />
-          <Route
-            path="/recents"
-            element={<GridsExplore variant="recent" />}
-          />
+          <Route path="/recents" element={<GridsExplore variant="recent" />} />
           <Route
             path="/populaires"
             element={<GridsExplore variant="popular" />}
           />
           <Route path="/mon-espace" element={<Dashboard />}>
-            <Route
-              index
-              element={<MonEspaceTabPanel variant="recent" />}
-            />
+            <Route index element={<MonEspaceTabPanel variant="recent" />} />
             <Route
               path="populaires"
               element={<MonEspaceTabPanel variant="popular" />}
