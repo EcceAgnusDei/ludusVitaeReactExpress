@@ -56,14 +56,16 @@ export function SignInForm({ onClose }: { onClose?: () => void }) {
       });
 
       if (error) {
-        setFormError(
-          error.message || "Une erreur est survenue lors de la connexion.",
-        );
+        const apiMessage =
+          error.message || "Une erreur est survenue lors de la connexion.";
+        console.error(apiMessage);
+        setFormError(apiMessage);
         return;
       }
 
       setLoginSucceeded(true);
-    } catch {
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
       setFormError("Une erreur inattendue est survenue.");
     } finally {
       setIsLoading(false);

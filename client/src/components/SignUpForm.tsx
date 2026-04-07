@@ -21,7 +21,10 @@ import { Label } from "@/components/ui/label";
 
 // Schéma de validation Zod
 const signUpSchema = z.object({
-  name: z.string().min(2, "Le nom doit contenir au moins 2 caractères"),
+  name: z
+    .string()
+    .trim()
+    .min(2, "Le nom d'utilisateur doit contenir au moins 2 caractères"),
   email: z.string().email("Adresse email invalide"),
   password: z
     .string()
@@ -66,14 +69,16 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
       });
 
       if (error) {
-        setFormError(
-          error.message || "Une erreur est survenue lors de l'inscription.",
-        );
+        const apiMessage =
+          error.message || "Une erreur est survenue lors de l'inscription.";
+        console.error(apiMessage);
+        setFormError(apiMessage);
         return;
       }
 
       setRegistrationSucceeded(true);
     } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
       setFormError("Une erreur inattendue est survenue.");
     } finally {
       setIsLoading(false);
@@ -111,7 +116,7 @@ export function SignUpForm({ onClose }: { onClose?: () => void }) {
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="name">Nom complet</Label>
+            <Label htmlFor="name">Nom d&apos;utilisateur</Label>
             <Input
               id="name"
               placeholder="Jean Dupont"

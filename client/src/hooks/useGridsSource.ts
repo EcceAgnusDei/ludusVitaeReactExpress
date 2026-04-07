@@ -17,7 +17,6 @@ export type UseGridsSourceOptions =
   | { kind: "user"; userId: string; sort: GridsSourceSort }
   | { kind: "likes" };
 
-/** Réponse paginée `GET /api/grids/all` après `res.json()`. */
 function parseGridsPage(body: unknown): {
   items: SavedGrid[];
   nextCursor: string | null;
@@ -45,8 +44,7 @@ function parseGridsPage(body: unknown): {
 
 export function useGridsSource(options: UseGridsSourceOptions) {
   const kind = options.kind;
-  const sort =
-    kind === "explore" || kind === "user" ? options.sort : undefined;
+  const sort = kind === "explore" || kind === "user" ? options.sort : undefined;
   const userId = kind === "user" ? options.userId : undefined;
 
   const [grids, setGrids] = useState<SavedGrid[] | null>(null);
@@ -125,10 +123,9 @@ export function useGridsSource(options: UseGridsSourceOptions) {
           return;
         }
 
-        const res = await fetch(
-          `${API_BASE}/api/grids/all?sort=${sort}`,
-          { credentials: "include" },
-        );
+        const res = await fetch(`${API_BASE}/api/grids/all?sort=${sort}`, {
+          credentials: "include",
+        });
         if (cancelled) return;
 
         if (!res.ok) {
@@ -200,9 +197,7 @@ export function useGridsSource(options: UseGridsSourceOptions) {
       setNextCursor(page.nextCursor);
       setHasMore(page.hasMore);
     } catch {
-      setError(
-        "Impossible de joindre le serveur. Vérifiez votre connexion.",
-      );
+      setError("Impossible de joindre le serveur. Vérifiez votre connexion.");
     } finally {
       if (!pendingLoadMorePaintRef.current) {
         loadMoreLock.current = false;
