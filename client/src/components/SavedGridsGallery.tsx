@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Heart, Trash2 } from "lucide-react";
 
 import { GridThumbnail } from "@/components/GridThumbnail";
+import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ function GridCardToolbar({
   const [likeCount, setLikeCount] = useState(likeCountInitial);
   const [likePending, setLikePending] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   useEffect(() => {
     setLiked(likedInitial);
@@ -81,11 +83,6 @@ function GridCardToolbar({
 
   const deleteGrid = async () => {
     if (deletePending) return;
-    if (
-      !window.confirm("Supprimer cette grille ? Cette action est irréversible.")
-    ) {
-      return;
-    }
     setDeletePending(true);
     try {
       const res = await fetch(
@@ -93,6 +90,7 @@ function GridCardToolbar({
         { method: "DELETE", credentials: "include" },
       );
       if (!res.ok) return;
+      setDeleteDialogOpen(false);
       onRemoved?.();
     } catch {
     } finally {
@@ -101,21 +99,30 @@ function GridCardToolbar({
   };
 
   return (
-    <div className="pointer-events-none absolute right-1 top-1 z-[2] flex items-center gap-1">
+    <>
+      <div className="pointer-events-none absolute right-1 top-1 z-[2] flex items-center gap-1">
       {showDelete ? (
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon-sm"
-          className="pointer-events-auto border border-border/80 bg-background/90 text-destructive shadow-sm backdrop-blur-sm hover:bg-destructive/10 hover:text-destructive"
-          disabled={deletePending}
-          aria-label="Supprimer cette grille"
-          onClick={() => {
-            void deleteGrid();
-          }}
-        >
-          <Trash2 className="size-4" aria-hidden />
-        </Button>
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon-sm"
+            className="pointer-events-auto border border-border/80 bg-background/90 text-destructive shadow-sm backdrop-blur-sm hover:bg-destructive/10 hover:text-destructive"
+            disabled={deletePending}
+            aria-label="Supprimer cette grille"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <Trash2 className="size-4" aria-hidden />
+          </Button>
+          <DeleteDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            title="Supprimer cette grille ?"
+            description="Cette action est irréversible. La grille sera définitivement supprimée."
+            pending={deletePending}
+            onConfirm={() => void deleteGrid()}
+          />
+        </>
       ) : null}
       {showLike ? (
         <>
@@ -146,7 +153,8 @@ function GridCardToolbar({
           </span>
         </>
       ) : null}
-    </div>
+      </div>
+    </>
   );
 }
 

@@ -1,6 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import type { VariantProps } from "class-variance-authority";
-import { Loader2, Menu, Settings } from "lucide-react";
+import { Menu, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -10,17 +10,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { cn } from "@/lib/utils";
+import { DeleteDialog } from "@/components/ui/delete-dialog";
 import { Dialog } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
 
@@ -65,6 +55,18 @@ function isActionVisible(item: NavActionItem, isLoggedIn: boolean): boolean {
   return item.public ? !isLoggedIn : isLoggedIn;
 }
 
+const AUTH_UNREACHABLE_MESSAGE =
+  "Le serveur ne répond pas (connexion ou base de données indisponible). Réessayez plus tard.";
+
+function isAuthFetchUnreachableError(err: unknown): boolean {
+  return (
+    err instanceof TypeError &&
+    (err.message === "Failed to fetch" ||
+      err.message.includes("fetch") ||
+      err.message.includes("NetworkError"))
+  );
+}
+
 export default function Header() {
   const navigate = useNavigate();
   const [menuSheetOpen, setMenuSheetOpen] = useState(false);
@@ -76,9 +78,34 @@ export default function Header() {
     null,
   );
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [signOutError, setSignOutError] = useState<string | null>(null);
 
   const { data: session, isPending } = authClient.useSession();
   const isLoggedIn = Boolean(session?.user);
+
+  const handleSignOut = useCallback(async (fromMobileSheet: boolean) => {
+    if (fromMobileSheet) setMenuSheetOpen(false);
+    setSignOutError(null);
+    try {
+      const { error } = await authClient.signOut();
+      if (error) {
+        setSignOutError(
+          typeof error.message === "string" && error.message
+            ? error.message
+            : "La déconnexion a échoué. Réessayez.",
+        );
+        return;
+      }
+    } catch (err) {
+      setSignOutError(
+        isAuthFetchUnreachableError(err)
+          ? AUTH_UNREACHABLE_MESSAGE
+          : err instanceof Error && err.message
+            ? err.message
+            : "La déconnexion a échoué. Réessayez.",
+      );
+    }
+  }, []);
 
   const navItems: NavItem[] = useMemo(
     () => [
@@ -133,12 +160,11 @@ export default function Header() {
         variant: "ghost",
         public: false,
         onSelect(fromMobileSheet) {
-          if (fromMobileSheet) setMenuSheetOpen(false);
-          void authClient.signOut();
+          void handleSignOut(fromMobileSheet);
         },
       },
     ],
-    [],
+    [handleSignOut],
   );
 
   const visibleLinks = navItems.filter(
@@ -168,6 +194,14 @@ export default function Header() {
       setDeleteConfirmOpen(false);
       setAccountSheetOpen(false);
       navigate("/", { replace: true });
+    } catch (err) {
+      setDeleteAccountError(
+        isAuthFetchUnreachableError(err)
+          ? AUTH_UNREACHABLE_MESSAGE
+          : err instanceof Error && err.message
+            ? err.message
+            : "La suppression du compte a échoué. Réessayez ou reconnectez-vous.",
+      );
     } finally {
       setDeleteAccountPending(false);
     }
@@ -318,55 +352,44 @@ export default function Header() {
           </SheetContent>
         </Sheet>
 
-        <AlertDialog
+        <DeleteDialog
           open={deleteConfirmOpen}
           onOpenChange={(open) => {
             setDeleteConfirmOpen(open);
             if (!open) setDeleteAccountError(null);
           }}
-        >
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Supprimer votre compte ?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Votre compte et toutes les données associées (grilles
-                enregistrées, likes, etc.) seront supprimés de façon définitive.
-                Cette action ne peut pas être annulée.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            {deleteAccountError ? (
-              <p className="text-sm text-destructive" role="alert">
-                {deleteAccountError}
-              </p>
-            ) : null}
-            <AlertDialogFooter>
-              <AlertDialogCancel disabled={deleteAccountPending}>
-                Annuler
-              </AlertDialogCancel>
-              <AlertDialogAction
-                disabled={deleteAccountPending}
-                className={cn(buttonVariants({ variant: "destructive" }))}
-                onClick={(e) => {
-                  e.preventDefault();
-                  void handleDeleteAccount();
-                }}
-              >
-                {deleteAccountPending ? (
-                  <>
-                    <Loader2
-                      className="mr-2 size-4 shrink-0 animate-spin"
-                      aria-hidden
-                    />
-                    Suppression…
-                  </>
-                ) : (
-                  "Supprimer définitivement"
-                )}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          title="Supprimer votre compte ?"
+          description={
+            <>
+              Votre compte et toutes les données associées (grilles
+              enregistrées, likes, etc.) seront supprimés de façon définitive.
+              Cette action ne peut pas être annulée.
+            </>
+          }
+          error={deleteAccountError}
+          pending={deleteAccountPending}
+          confirmLabel="Supprimer définitivement"
+          confirmPendingSpinner
+          onConfirm={() => void handleDeleteAccount()}
+        />
       </div>
+
+      {signOutError ? (
+        <div className="border-t border-destructive/20 bg-destructive/5">
+          <div className="container mx-auto flex items-center justify-between gap-3 px-4 py-2 text-sm text-destructive">
+            <span>{signOutError}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={() => setSignOutError(null)}
+            >
+              Fermer
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <Dialog open={isSignUpOpen} onClose={() => setIsSignUpOpen(false)}>
         <SignUpForm onClose={() => setIsSignUpOpen(false)} />
