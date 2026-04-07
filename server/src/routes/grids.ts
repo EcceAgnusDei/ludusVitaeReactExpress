@@ -13,7 +13,6 @@ type GridRow = {
   name: string | null;
   data: unknown;
   createdAt: Date;
-  updatedAt: Date;
 };
 
 /** Extrait l’identifiant unique depuis un paramètre de route Express (gère le cas tableau). */
@@ -37,7 +36,7 @@ function parseGridsListSort(sort: unknown): GridsListSortMode | null {
 const GRIDS_PAGE_DEFAULT_LIMIT = 10;
 const GRIDS_PAGE_MAX_LIMIT = 50;
 
-/** Curseur pagination (JSON puis base64url) : `v` version schéma, `sort`, `u` = updatedAt ISO, `i` = id ; si popular, `l` = likeCount. */
+/** Curseur pagination (JSON puis base64url) : `v` version schéma, `sort`, `u` = createdAt ISO, `i` = id ; si popular, `l` = likeCount. */
 type GridsCursorRecent = { v: 1; sort: "recent"; u: string; i: string };
 type GridsCursorPopular = {
   v: 1;
@@ -173,27 +172,27 @@ function parseGridsPageLimit(raw: unknown): number {
   return Math.min(Math.floor(v), GRIDS_PAGE_MAX_LIMIT);
 }
 
-/** Construit le curseur « page suivante » pour le tri par date de mise à jour (clé : updatedAt, id). */
-function cursorFromRowRecent(row: { updatedAt: Date; id: string }): string {
+/** Construit le curseur « page suivante » pour le tri par date de création (clé : createdAt, id). */
+function cursorFromRowRecent(row: { createdAt: Date; id: string }): string {
   return encodeGridsCursor({
     v: 1,
     sort: "recent",
-    u: row.updatedAt.toISOString(),
+    u: row.createdAt.toISOString(),
     i: row.id,
   });
 }
 
-/** Construit le curseur « page suivante » pour le tri par popularité (clé : likeCount, updatedAt, id). */
+/** Construit le curseur « page suivante » pour le tri par popularité (clé : likeCount, createdAt, id). */
 function cursorFromRowPopular(row: {
   likeCount: number;
-  updatedAt: Date;
+  createdAt: Date;
   id: string;
 }): string {
   return encodeGridsCursor({
     v: 1,
     sort: "popular",
     l: row.likeCount,
-    u: row.updatedAt.toISOString(),
+    u: row.createdAt.toISOString(),
     i: row.id,
   });
 }
@@ -206,7 +205,6 @@ function rowToJson(row: GridRow) {
     name: row.name,
     data: row.data,
     createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
   };
 }
 
@@ -230,7 +228,7 @@ gridsRouter.post("/", requireAuth, async (req, res, next) => {
     const { rows } = await pool.query<GridRow>(
       `insert into "grid" ("id", "userId", "name", "data")
        values ($1, $2, $3, $4::jsonb)
-       returning "id", "userId", "name", "data", "createdAt", "updatedAt"`,
+       returning "id", "userId", "name", "data", "createdAt"`,
       [id, userId, name === undefined ? null : name, JSON.stringify(payload)],
     );
 
@@ -247,7 +245,7 @@ type GridRowWithLikes = GridRowWithCreator & {
   likedByMe: boolean;
 };
 
-const GRIDS_ALL_SELECT = `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+const GRIDS_ALL_SELECT = `select g."id", g."userId", g."name", g."data", g."createdAt",
               u."name" as "creatorName",
               (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
               case
@@ -260,7 +258,7 @@ const GRIDS_ALL_SELECT = `select g."id", g."userId", g."name", g."data", g."crea
        from "grid" g
        inner join "user" u on u."id" = g."userId"`;
 
-/** Récupère jusqu’à `fetchLimit` lignes pour `/all` (curseur optionnel ; clé populaire = likes, updatedAt, id). */
+/** Récupère jusqu’à `fetchLimit` lignes pour `/all` (curseur optionnel ; clé populaire = likes, createdAt, id). */
 async function queryGridsAllRawPage(
   viewerId: string | null,
   sortMode: GridsListSortMode,
@@ -271,7 +269,7 @@ async function queryGridsAllRawPage(
     if (cursor === null) {
       const { rows } = await pool.query<GridRowWithLikes>(
         `${GRIDS_ALL_SELECT}
-       order by g."updatedAt" desc, g."id" desc
+       order by g."createdAt" desc, g."id" desc
        limit $2`,
         [viewerId, fetchLimit],
       );
@@ -281,10 +279,10 @@ async function queryGridsAllRawPage(
     const { rows } = await pool.query<GridRowWithLikes>(
       `${GRIDS_ALL_SELECT}
        where (
-         g."updatedAt" < $2::timestamptz
-         or (g."updatedAt" = $2::timestamptz and g."id" < $3::text)
+         g."createdAt" < $2::timestamptz
+         or (g."createdAt" = $2::timestamptz and g."id" < $3::text)
        )
-       order by g."updatedAt" desc, g."id" desc
+       order by g."createdAt" desc, g."id" desc
        limit $4`,
       [viewerId, c.u, c.i, fetchLimit],
     );
@@ -296,7 +294,7 @@ async function queryGridsAllRawPage(
     if (cursor === null) {
       const { rows } = await pool.query<GridRowWithLikes>(
         `${GRIDS_ALL_SELECT}
-       order by ${likeExpr} desc, g."updatedAt" desc, g."id" desc
+       order by ${likeExpr} desc, g."createdAt" desc, g."id" desc
        limit $2`,
         [viewerId, fetchLimit],
       );
@@ -307,10 +305,10 @@ async function queryGridsAllRawPage(
       `${GRIDS_ALL_SELECT}
        where (
          ${likeExpr} < $2::int
-         or (${likeExpr} = $2::int and g."updatedAt" < $3::timestamptz)
-         or (${likeExpr} = $2::int and g."updatedAt" = $3::timestamptz and g."id" < $4::text)
+         or (${likeExpr} = $2::int and g."createdAt" < $3::timestamptz)
+         or (${likeExpr} = $2::int and g."createdAt" = $3::timestamptz and g."id" < $4::text)
        )
-       order by ${likeExpr} desc, g."updatedAt" desc, g."id" desc
+       order by ${likeExpr} desc, g."createdAt" desc, g."id" desc
        limit $5`,
       [viewerId, pop.l, pop.u, pop.i, fetchLimit],
     );
@@ -385,7 +383,7 @@ gridsRouter.get("/me/likes", requireAuth, async (req, res, next) => {
   try {
     const userId = req.userId!;
     const { rows } = await pool.query<GridRowLikedByMe>(
-      `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+      `select g."id", g."userId", g."name", g."data", g."createdAt",
               u."name" as "creatorName",
               (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
               true as "likedByMe"
@@ -470,7 +468,7 @@ type GridRowWithLikeFields = GridRow & {
   likedByMe: boolean;
 };
 
-const GRIDS_USER_SELECT = `select g."id", g."userId", g."name", g."data", g."createdAt", g."updatedAt",
+const GRIDS_USER_SELECT = `select g."id", g."userId", g."name", g."data", g."createdAt",
               (select count(*)::int from "grid_like" l where l."gridId" = g."id") as "likeCount",
               case
                 when $2::text is null then false
@@ -499,8 +497,8 @@ gridsRouter.get("/user/:userId", async (req, res, next) => {
     const likeExpr = `(select count(*)::int from "grid_like" lp where lp."gridId" = g."id")`;
     const orderBy =
       sortMode === "recent"
-        ? `order by g."updatedAt" desc, g."id" desc`
-        : `order by ${likeExpr} desc, g."updatedAt" desc, g."id" desc`;
+        ? `order by g."createdAt" desc, g."id" desc`
+        : `order by ${likeExpr} desc, g."createdAt" desc, g."id" desc`;
     const { rows } = await pool.query<GridRowWithLikeFields>(
       `${GRIDS_USER_SELECT}
        ${orderBy}`,
@@ -522,7 +520,7 @@ gridsRouter.get("/:id", async (req, res, next) => {
   try {
     const { id } = req.params;
     const { rows } = await pool.query<GridRow>(
-      `select "id", "userId", "name", "data", "createdAt", "updatedAt"
+      `select "id", "userId", "name", "data", "createdAt"
        from "grid"
        where "id" = $1`,
       [id],
@@ -535,6 +533,20 @@ gridsRouter.get("/:id", async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+gridsRouter.patch("/:id", (_req, res) => {
+  res
+    .status(405)
+    .set("Allow", "GET, DELETE")
+    .json({ error: "Les grilles ne peuvent pas être modifiées après création." });
+});
+
+gridsRouter.put("/:id", (_req, res) => {
+  res
+    .status(405)
+    .set("Allow", "GET, DELETE")
+    .json({ error: "Les grilles ne peuvent pas être modifiées après création." });
 });
 
 gridsRouter.delete("/:id", requireAuth, async (req, res, next) => {

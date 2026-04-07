@@ -4,7 +4,6 @@ export type SavedGrid = {
   name: string | null;
   data: unknown;
   createdAt: string;
-  updatedAt: string;
   /** Renseigné par `GET /api/grids/all` (jointure sur `user`). */
   creatorName?: string | null;
   /** Renseigné par `GET /api/grids/all` (table `grid_like`). */
