@@ -1,10 +1,9 @@
-import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useOutletContext } from "react-router-dom";
 
 import { SavedGridsGallery } from "@/components/SavedGridsGallery";
 import { authClient } from "@/lib/auth-client";
+import { useGridsSource } from "@/hooks/useGridsSource";
 import { cn } from "@/lib/utils";
-import type { SavedGrid } from "@/types/saved-grid";
 
 export type MonEspaceVariant = "recent" | "popular" | "likes";
 
@@ -49,62 +48,15 @@ const TAB_COPY: Record<
 
 export function MonEspaceTabPanel({ variant }: { variant: MonEspaceVariant }) {
   const { userId } = useOutletContext<DashboardOutletContext>();
-  const [grids, setGrids] = useState<SavedGrid[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoadError(null);
-    setGrids(null);
-
-    void (async () => {
-      try {
-        let url: string;
-        if (variant === "likes") {
-          url = `${import.meta.env.VITE_API_BASE_URL}/api/grids/me/likes`;
-        } else {
-          const sort = variant === "popular" ? "popular" : "recent";
-          url = `${import.meta.env.VITE_API_BASE_URL}/api/grids/user/${encodeURIComponent(userId)}?sort=${sort}`;
-        }
-
-        const res = await fetch(url, { credentials: "include" });
-        if (cancelled) return;
-
-        if (res.status === 401 && variant === "likes") {
-          setLoadError("Connectez-vous pour voir vos grilles aimées.");
-          setGrids([]);
-          return;
-        }
-
-        if (!res.ok) {
-          setLoadError("Impossible de charger vos grilles.");
-          setGrids([]);
-          return;
-        }
-
-        const body = (await res.json()) as unknown;
-        const items = Array.isArray(body) ? (body as SavedGrid[]) : null;
-        if (items === null) {
-          setLoadError("Réponse serveur inattendue.");
-          setGrids([]);
-          return;
-        }
-
-        setGrids(items);
-      } catch {
-        if (!cancelled) {
-          setLoadError(
-            "Impossible de joindre le serveur. Vérifiez votre connexion.",
-          );
-          setGrids([]);
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, variant]);
+  const sourceOptions =
+    variant === "likes"
+      ? ({ kind: "likes" } as const)
+      : ({
+          kind: "user",
+          userId,
+          sort: variant === "popular" ? "popular" : "recent",
+        } as const);
+  const { grids, error } = useGridsSource(sourceOptions);
 
   const emptyMessages: Record<MonEspaceVariant, string> = {
     recent:
@@ -130,7 +82,7 @@ export function MonEspaceTabPanel({ variant }: { variant: MonEspaceVariant }) {
       </p>
       <SavedGridsGallery
         grids={grids}
-        loadError={loadError}
+        loadError={error}
         emptyMessage={emptyMessages[variant]}
         showCreator={variant === "likes"}
       />
