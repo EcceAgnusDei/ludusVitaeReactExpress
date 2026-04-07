@@ -537,69 +537,6 @@ gridsRouter.get("/:id", async (req, res, next) => {
   }
 });
 
-gridsRouter.patch("/:id", requireAuth, async (req, res, next) => {
-  try {
-    const userId = req.userId!;
-    const { id } = req.params;
-    const body = req.body as { name?: unknown; data?: unknown };
-
-    const hasName = Object.prototype.hasOwnProperty.call(body, "name");
-    const hasData = Object.prototype.hasOwnProperty.call(body, "data");
-
-    if (!hasName && !hasData) {
-      res.status(400).json({ error: "Fournir au moins name ou data" });
-      return;
-    }
-
-    if (
-      hasName &&
-      body.name !== null &&
-      body.name !== undefined &&
-      typeof body.name !== "string"
-    ) {
-      res.status(400).json({ error: "name doit être une chaîne ou null" });
-      return;
-    }
-    if (hasData && (body.data === null || typeof body.data !== "object")) {
-      res.status(400).json({ error: "data doit être un objet" });
-      return;
-    }
-
-    const sets: string[] = [];
-    const values: unknown[] = [];
-    let p = 1;
-
-    if (hasName) {
-      sets.push(`"name" = $${p++}`);
-      values.push(body.name === undefined ? null : body.name);
-    }
-    if (hasData) {
-      sets.push(`"data" = $${p++}::jsonb`);
-      values.push(JSON.stringify(body.data as object));
-    }
-
-    const idParam = p++;
-    const userParam = p++;
-    values.push(id, userId);
-
-    const { rows } = await pool.query<GridRow>(
-      `update "grid"
-       set ${sets.join(", ")}
-       where "id" = $${idParam} and "userId" = $${userParam}
-       returning "id", "userId", "name", "data", "createdAt", "updatedAt"`,
-      values,
-    );
-
-    if (!rows[0]) {
-      res.status(404).json({ error: "Grille introuvable" });
-      return;
-    }
-    res.json(rowToJson(rows[0]));
-  } catch (err) {
-    next(err);
-  }
-});
-
 gridsRouter.delete("/:id", requireAuth, async (req, res, next) => {
   try {
     const userId = req.userId!;

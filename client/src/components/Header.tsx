@@ -1,9 +1,26 @@
 import React, { useMemo, useState } from "react";
 import type { VariantProps } from "class-variance-authority";
-import { Menu } from "lucide-react";
+import { Loader2, Menu, Settings } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 import { Button, buttonVariants } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { cn } from "@/lib/utils";
 import { Dialog } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
 
@@ -49,9 +66,16 @@ function isActionVisible(item: NavActionItem, isLoggedIn: boolean): boolean {
 }
 
 export default function Header() {
-  const [isOpen, setIsOpen] = useState(false);
+  const navigate = useNavigate();
+  const [menuSheetOpen, setMenuSheetOpen] = useState(false);
+  const [accountSheetOpen, setAccountSheetOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [deleteAccountPending, setDeleteAccountPending] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(
+    null,
+  );
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
 
   const { data: session, isPending } = authClient.useSession();
   const isLoggedIn = Boolean(session?.user);
@@ -87,7 +111,7 @@ export default function Header() {
         variant: "ghost",
         public: true,
         onSelect(fromMobileSheet) {
-          if (fromMobileSheet) setIsOpen(false);
+          if (fromMobileSheet) setMenuSheetOpen(false);
           setIsLoginOpen(true);
         },
       },
@@ -98,7 +122,7 @@ export default function Header() {
         variant: "default",
         public: true,
         onSelect(fromMobileSheet) {
-          if (fromMobileSheet) setIsOpen(false);
+          if (fromMobileSheet) setMenuSheetOpen(false);
           setIsSignUpOpen(true);
         },
       },
@@ -109,7 +133,7 @@ export default function Header() {
         variant: "ghost",
         public: false,
         onSelect(fromMobileSheet) {
-          if (fromMobileSheet) setIsOpen(false);
+          if (fromMobileSheet) setMenuSheetOpen(false);
           void authClient.signOut();
         },
       },
@@ -125,6 +149,29 @@ export default function Header() {
     (item): item is NavActionItem =>
       isNavActionItem(item) && isActionVisible(item, isLoggedIn),
   );
+
+  async function handleDeleteAccount() {
+    setDeleteAccountError(null);
+    setDeleteAccountPending(true);
+    try {
+      const { error } = await authClient.deleteUser({
+        callbackURL: `${window.location.origin}/`,
+      });
+      if (error) {
+        setDeleteAccountError(
+          typeof error.message === "string" && error.message
+            ? error.message
+            : "La suppression du compte a échoué. Réessayez ou reconnectez-vous.",
+        );
+        return;
+      }
+      setDeleteConfirmOpen(false);
+      setAccountSheetOpen(false);
+      navigate("/", { replace: true });
+    } finally {
+      setDeleteAccountPending(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -152,26 +199,48 @@ export default function Header() {
           {isPending ? (
             <span className="text-sm text-muted-foreground">…</span>
           ) : (
-            visibleActions.map((item) => (
-              <Button
-                key={item.id}
-                variant={item.variant}
-                onClick={() => item.onSelect(false)}
-              >
-                {item.name}
-              </Button>
-            ))
+            <>
+              {visibleActions.map((item) => (
+                <Button
+                  key={item.id}
+                  variant={item.variant}
+                  onClick={() => item.onSelect(false)}
+                >
+                  {item.name}
+                </Button>
+              ))}
+              {isLoggedIn ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0"
+                  aria-label="Paramètres du compte"
+                  onClick={() => setAccountSheetOpen(true)}
+                >
+                  <Settings className="h-5 w-5" aria-hidden />
+                </Button>
+              ) : null}
+            </>
           )}
         </div>
 
-        <Sheet open={isOpen} onOpenChange={setIsOpen}>
-          <SheetTrigger asChild className="md:hidden">
-            <Button variant="ghost" size="icon" className="h-12 w-12">
-              <Menu className="!h-9 !w-9 text-foreground" />
-            </Button>
-          </SheetTrigger>
+        <Sheet open={menuSheetOpen} onOpenChange={setMenuSheetOpen}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-12 w-12 md:hidden"
+            aria-label="Ouvrir le menu"
+            onClick={() => setMenuSheetOpen(true)}
+          >
+            <Menu className="!h-9 !w-9 text-foreground" aria-hidden />
+          </Button>
 
           <SheetContent side="right" className="w-80">
+            <SheetHeader>
+              <SheetTitle className="sr-only">Menu</SheetTitle>
+            </SheetHeader>
             <div className="flex flex-col gap-6 mt-10">
               {visibleLinks.map((link) => (
                 <Button
@@ -180,7 +249,7 @@ export default function Header() {
                   className="justify-start text-lg h-12 w-full"
                   asChild
                 >
-                  <a href={link.href} onClick={() => setIsOpen(false)}>
+                  <a href={link.href} onClick={() => setMenuSheetOpen(false)}>
                     {link.name}
                   </a>
                 </Button>
@@ -200,9 +269,103 @@ export default function Header() {
                       </Button>
                     ))}
               </div>
+
+              {isLoggedIn && !isPending ? (
+                <div className="pt-6 border-t">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-12 w-full justify-start text-lg"
+                    onClick={() => {
+                      setMenuSheetOpen(false);
+                      setAccountSheetOpen(true);
+                    }}
+                  >
+                    Paramètres
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </SheetContent>
         </Sheet>
+
+        <Sheet
+          open={accountSheetOpen}
+          onOpenChange={(open) => {
+            setAccountSheetOpen(open);
+            if (!open) {
+              setDeleteAccountError(null);
+              setDeleteConfirmOpen(false);
+            }
+          }}
+        >
+          <SheetContent side="right" className="w-80 z-[60]">
+            <SheetHeader>
+              <SheetTitle className="sr-only">Paramètres du compte</SheetTitle>
+            </SheetHeader>
+            <div className="mt-10 flex flex-col gap-3">
+              {isLoggedIn && !isPending ? (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  className="w-full"
+                  onClick={() => setDeleteConfirmOpen(true)}
+                >
+                  Supprimer mon compte
+                </Button>
+              ) : null}
+            </div>
+          </SheetContent>
+        </Sheet>
+
+        <AlertDialog
+          open={deleteConfirmOpen}
+          onOpenChange={(open) => {
+            setDeleteConfirmOpen(open);
+            if (!open) setDeleteAccountError(null);
+          }}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Supprimer votre compte ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Votre compte et toutes les données associées (grilles
+                enregistrées, likes, etc.) seront supprimés de façon définitive.
+                Cette action ne peut pas être annulée.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            {deleteAccountError ? (
+              <p className="text-sm text-destructive" role="alert">
+                {deleteAccountError}
+              </p>
+            ) : null}
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteAccountPending}>
+                Annuler
+              </AlertDialogCancel>
+              <AlertDialogAction
+                disabled={deleteAccountPending}
+                className={cn(buttonVariants({ variant: "destructive" }))}
+                onClick={(e) => {
+                  e.preventDefault();
+                  void handleDeleteAccount();
+                }}
+              >
+                {deleteAccountPending ? (
+                  <>
+                    <Loader2
+                      className="mr-2 size-4 shrink-0 animate-spin"
+                      aria-hidden
+                    />
+                    Suppression…
+                  </>
+                ) : (
+                  "Supprimer définitivement"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
 
       <Dialog open={isSignUpOpen} onClose={() => setIsSignUpOpen(false)}>

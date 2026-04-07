@@ -23,6 +23,11 @@ export const auth = betterAuth({
     enabled: true, // active l’auth par email + mot de passe
     autoSignIn: true, // connexion automatique après inscription
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+    },
+  },
   databaseHooks: {
     user: {
       create: {
