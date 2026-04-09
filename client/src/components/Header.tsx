@@ -16,6 +16,7 @@ import { authClient } from "@/lib/auth-client";
 
 import { SignUpForm } from "./SignUpForm";
 import { SignInForm } from "./SignInForm";
+import { ForgotPasswordForm } from "./ForgotPasswordForm";
 
 type NavLinkItem = {
   id: string;
@@ -73,6 +74,8 @@ export default function Header() {
   const [accountSheetOpen, setAccountSheetOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
+  const [forgotPasswordFormKey, setForgotPasswordFormKey] = useState(0);
   const [deleteAccountPending, setDeleteAccountPending] = useState(false);
   const [deleteAccountError, setDeleteAccountError] = useState<string | null>(
     null,
@@ -82,6 +85,12 @@ export default function Header() {
 
   const { data: session, isPending } = authClient.useSession();
   const isLoggedIn = Boolean(session?.user);
+
+  const openForgotPasswordModal = useCallback(() => {
+    setIsLoginOpen(false);
+    setForgotPasswordFormKey((k) => k + 1);
+    setIsForgotPasswordOpen(true);
+  }, []);
 
   const handleSignOut = useCallback(async (fromMobileSheet: boolean) => {
     if (fromMobileSheet) setMenuSheetOpen(false);
@@ -396,7 +405,24 @@ export default function Header() {
       </Dialog>
 
       <Dialog open={isLoginOpen} onClose={() => setIsLoginOpen(false)}>
-        <SignInForm onClose={() => setIsLoginOpen(false)} />
+        <SignInForm
+          onClose={() => setIsLoginOpen(false)}
+          onForgotPassword={openForgotPasswordModal}
+        />
+      </Dialog>
+
+      <Dialog
+        open={isForgotPasswordOpen}
+        onClose={() => setIsForgotPasswordOpen(false)}
+      >
+        <ForgotPasswordForm
+          key={forgotPasswordFormKey}
+          onClose={() => setIsForgotPasswordOpen(false)}
+          onBackToSignIn={() => {
+            setIsForgotPasswordOpen(false);
+            setIsLoginOpen(true);
+          }}
+        />
       </Dialog>
     </header>
   );

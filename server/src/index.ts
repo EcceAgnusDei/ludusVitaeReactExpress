@@ -7,6 +7,7 @@ import helmet from "helmet";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth.js";
 import { gridsRouter } from "./routes/grids.js";
+import { passwordResetRouter } from "./routes/passwordReset.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000; //ou parseInt(process.env.PORT || "3000", 10);
@@ -31,6 +32,7 @@ app.all("/api/auth/{*splat}", toNodeHandler(auth));
 // Maintenant on peut parser le JSON pour tes autres routes
 app.use(express.json());
 
+app.use("/api/password-reset", passwordResetRouter);
 app.use("/api/grids", gridsRouter);
 
 app.get("/", (req, res) => {

@@ -6,6 +6,7 @@ import Game from "./pages/Game";
 import Dashboard, { MonEspaceTabPanel } from "./pages/Dashboard";
 import { GridsExplore } from "./pages/GridsExplore";
 import NotFound from "./pages/NotFound";
+import ResetPassword from "./pages/ResetPassword";
 
 function App() {
   return (
@@ -31,6 +32,7 @@ function App() {
               element={<MonEspaceTabPanel variant="likes" />}
             />
           </Route>
+          <Route path="/reset-password" element={<ResetPassword />} />
         </Route>
 
         <Route path="*" element={<NotFound />} />

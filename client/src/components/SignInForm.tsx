@@ -26,7 +26,13 @@ const signInSchema = z.object({
 
 type SignInFormValues = z.infer<typeof signInSchema>;
 
-export function SignInForm({ onClose }: { onClose?: () => void }) {
+export function SignInForm({
+  onClose,
+  onForgotPassword,
+}: {
+  onClose?: () => void;
+  onForgotPassword?: () => void;
+}) {
   const [isLoading, setIsLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [loginSucceeded, setLoginSucceeded] = useState(false);
@@ -130,6 +136,15 @@ export function SignInForm({ onClose }: { onClose?: () => void }) {
                 {errors.password.message}
               </p>
             )}
+            <p className="text-right">
+              <button
+                type="button"
+                className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+                onClick={() => onForgotPassword?.()}
+              >
+                Mot de passe oublié ?
+              </button>
+            </p>
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
